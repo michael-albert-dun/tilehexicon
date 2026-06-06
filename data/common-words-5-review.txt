@@ -1,0 +1,148 @@
+# Words from common-words-5.txt that may be worth inspecting before random generation.
+# Format: word<TAB>category<TAB>note
+abaft	archaic/literary	mostly nautical or old-fashioned
+adieu	archaic/literary	literary farewell
+aeons	dialect/variant	British spelling; consider "eons" if present
+amour	archaic/literary	literary or old-fashioned romance word
+appal	dialect/variant	British spelling; US is usually "appall"
+attar	specialist	perfume/rose oil term
+aught	archaic/literary	old-fashioned "anything" or zero
+avers	archaic/literary	formal legal/literary verb
+avows	archaic/literary	formal/literary
+banns	archaic/literary	church marriage proclamations
+bated	archaic/literary	mostly fixed phrase in "bated breath"
+begat	archaic/literary	biblical/literary
+begot	archaic/literary	biblical/literary
+belie	archaic/literary	formal/literary verb
+besom	archaic/literary	old word for broom
+bided	archaic/literary	old-fashioned past tense
+bides	archaic/literary	old-fashioned verb
+blent	archaic/literary	poetic past tense of blend
+blest	archaic/literary	poetic variant of blessed
+bonny	dialect/variant	Scottish/Northern English flavor
+boors	archaic/literary	old-fashioned insult
+brigs	specialist	nautical plural
+bruin	archaic/literary	literary word for bear
+canto	archaic/literary	poetry term
+capon	specialist	castrated rooster
+cavil	archaic/literary	formal verb
+chary	archaic/literary	formal/literary "wary"
+churl	archaic/literary	old-fashioned insult
+clews	archaic/literary	archaic spelling/plural
+clime	archaic/literary	poetic word for region/climate
+copra	specialist	dried coconut kernel
+cotes	archaic/literary	animal shelter term, uncommon
+cozen	archaic/literary	old-fashioned verb for deceive
+crape	archaic/literary	crepe spelling/old mourning fabric
+curst	archaic/literary	poetic variant of cursed
+dicta	specialist	legal/philosophical plural
+drays	specialist	cart/vehicle term
+drily	dialect/variant	less common spelling; "dryly" also exists
+dunno	colloquial	casual contraction
+dwelt	archaic/literary	old-fashioned past tense outside literary use
+fakir	dated/sensitive	old colonial-era religious/performer term
+fifes	specialist	musical instrument plural
+filch	archaic/literary	old-fashioned verb
+finis	archaic/literary	literary ending word
+fiord	dialect/variant	variant of fjord
+franc	specialist	old/foreign currency
+furze	archaic/literary	plant name, uncommon
+gamin	archaic/literary	old-fashioned street-child term
+gayly	dialect/variant	less common spelling; "gaily" also exists
+genii	archaic/literary	old plural of genius/genie
+gents	colloquial	casual shortening of gentlemen
+gimme	colloquial	casual contraction
+gipsy	dated/sensitive	outdated spelling/ethnonym
+golly	colloquial	mild old-fashioned exclamation
+gonna	colloquial	casual contraction
+goody	colloquial/dated	childish or old-fashioned usage
+gotta	colloquial	casual contraction
+gorse	specialist	plant name
+gouty	archaic/literary	old-fashioned disease adjective
+gypsy	dated/sensitive	ethnonym often considered dated/offensive
+haled	archaic/literary	old-fashioned verb
+harts	archaic/literary	old word for male deer
+hewed	archaic/literary	old-fashioned past tense
+hussy	dated/sensitive	old-fashioned sexist insult
+kinda	colloquial	casual contraction
+laity	specialist	religious term
+largo	specialist	music tempo term
+laths	specialist	building strips
+liege	archaic/literary	feudal/literary term
+loges	specialist	theater seating plural
+manse	archaic/literary	clergy house term
+meres	archaic/literary	poetic/literary plural
+meted	archaic/literary	formal verb, mostly "meted out"
+mewed	archaic/literary	uncommon verb
+miens	archaic/literary	literary plural
+milch	archaic/literary	old adjective for milk-producing
+mores	specialist	sociology/customs term
+nabob	archaic/literary	old word for wealthy person
+naves	specialist	church architecture plural
+ninny	archaic/literary	old-fashioned insult
+nonce	specialist	technical/literary word
+oakum	specialist	ship caulking fiber
+oaten	archaic/literary	poetic adjective
+olden	archaic/literary	old-fashioned adjective
+osier	specialist	willow/basketry term
+paean	archaic/literary	literary song of praise
+palmy	archaic/literary	old-fashioned prosperous/lush adjective
+palsy	specialist/dated	old medical term
+pasha	archaic/literary	historical title
+pates	archaic/literary	old-fashioned word for heads
+pease	archaic/literary	archaic plural/mass noun for peas
+peons	dated/sensitive	class/colonial labor term
+pigmy	dated/sensitive	outdated spelling/term
+podia	specialist	technical plural
+poesy	archaic/literary	poetic word for poetry
+prate	archaic/literary	old-fashioned verb
+prosy	archaic/literary	literary adjective
+pshaw	archaic/literary	old-fashioned exclamation
+pussy	colloquial/sensitive	possible vulgar reading
+quire	specialist	paper/bookbinding or choir variant
+quoth	archaic/literary	poetic "said"
+rajah	archaic/literary	historical title
+reeve	archaic/literary	historical official
+rends	archaic/literary	literary verb
+revue	dated/specialist	stage-entertainment term
+rheum	archaic/literary	old bodily-fluid term
+rills	archaic/literary	literary small streams
+rimes	archaic/literary	frost or old spelling/poetic term
+riven	archaic/literary	literary past participle
+sahib	dated/sensitive	colonial-era title
+saith	archaic/literary	biblical/literary "says"
+shalt	archaic/literary	biblical/literary
+sheik	dated/sensitive	older spelling/title
+shire	archaic/literary	British county/literary feel
+shoon	archaic/literary	archaic plural of shoe
+sibyl	archaic/literary	prophetess from classical myth
+slily	dialect/variant	less common spelling; "slyly" also exists
+sooth	archaic/literary	old word for truth
+sough	archaic/literary	literary sound word
+souse	archaic/literary	old-fashioned verb/noun
+spake	archaic/literary	biblical/literary "spoke"
+spunk	colloquial/sensitive	slang/vulgar in some dialects
+squaw	dated/sensitive	offensive term for Indigenous woman
+strew	archaic/literary	literary verb
+swain	archaic/literary	poetic young lover/countryman
+sward	archaic/literary	literary turf/grass word
+tares	archaic/literary	biblical/plant plural
+tempi	specialist	music plural
+tepee	dialect/variant	variant spelling; "tipi" often preferred
+thine	archaic/literary	biblical/literary pronoun
+throe	archaic/literary	literary pain/spasm word
+troth	archaic/literary	old word for pledge/truth
+tulle	specialist	fabric term
+twain	archaic/literary	poetic "two"
+vaunt	archaic/literary	formal/literary verb
+vizor	dialect/variant	less common spelling of visor
+voile	specialist	fabric term
+welch	dated/sensitive	variant often avoided; "welsh" also sensitive as verb
+whirr	dialect/variant	variant spelling of whir
+whist	archaic/literary	old card game
+whore	sensitive	sexual insult/slur
+wight	archaic/literary	old word for person/creature
+wooer	archaic/literary	old-fashioned suitor
+wrack	archaic/literary	less common variant of rack/wreck
+wrapt	archaic/literary	poetic variant of wrapped/rapt
+wroth	archaic/literary	old word for angry

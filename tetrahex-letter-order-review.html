@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tetrahex Letter Order Review</title>
+  <style>
+    :root {
+      --page: #f4f8fb;
+      --card: #ffffff;
+      --ink: #26313a;
+      --muted: #6b7782;
+      --line: #d8e2e9;
+      --tile: #8acbf0;
+      --tile-edge: #6aa6c1;
+      --tile-inner: #b8e8ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1360px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    header {
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.65rem, 3vw, 2.6rem);
+      letter-spacing: 0;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .note {
+      max-width: 980px;
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.45;
+    }
+
+    .version-note {
+      margin-top: 6px;
+      color: #94a1aa;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+      gap: 16px;
+    }
+
+    .shape-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 12px 28px rgba(34, 44, 52, 0.08);
+      padding: 10px;
+    }
+
+    .shape-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .primary-order,
+    .allowed,
+    .raw-orders,
+    .coords {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .primary-order {
+      font-size: 0.72rem;
+      color: #8b98a2;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1.08;
+      overflow: visible;
+    }
+
+    .hex {
+      fill: var(--tile);
+      stroke: var(--tile-edge);
+      stroke-width: 3.8;
+      paint-order: stroke fill;
+      filter: drop-shadow(0 6px 7px rgba(38, 49, 58, 0.12));
+    }
+
+    .inner {
+      fill: none;
+      stroke: var(--tile-inner);
+      stroke-width: 2.7;
+      opacity: 0.95;
+      pointer-events: none;
+    }
+
+    .letter {
+      fill: var(--ink);
+      font-size: 25px;
+      font-weight: 850;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .allowed {
+      margin-top: 2px;
+      color: #52606a;
+      font-size: 0.78rem;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .raw-orders,
+    .coords {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #99a5ad;
+      font-size: 0.66rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Tetrahex Letter Order Review</h1>
+      <p class="note">
+        Each card shows one fixed tetrahex orientation. The tile is filled with
+        <code>HINT</code> using the first allowed generation order. The
+        <code>Allowed</code> line lists current allowed readings as letter
+        strings, so review notes can use commands like <code>7: Add HTIN</code>
+        or <code>7: Delete HINT</code>.
+      </p>
+      <div class="version-note" id="versionNote">Loading...</div>
+    </header>
+
+    <section class="gallery" id="gallery"></section>
+  </main>
+
+  <script>
+    const HEX_SIZE = 24;
+    const WORD = "HINT";
+    const OUTER_POINTS = hexPoints(HEX_SIZE).map(([x, y]) => `${x},${y}`).join(" ");
+    const INNER_POINTS = hexPoints(HEX_SIZE * 0.72).map(([x, y]) => `${x},${y}`).join(" ");
+
+    render();
+
+    async function render() {
+      const ordersByCoords = await fetchJson("data/tetrahex-generation-orders.json");
+      const entries = Object.entries(ordersByCoords).map(([shapeKey, coordOrders], index) => ({
+        shape: parseShape(shapeKey),
+        shapeNumber: index + 1,
+        orders: ordersForShapeKey(shapeKey, coordOrders),
+      }));
+      const gallery = document.querySelector("#gallery");
+      let multiOrderCount = 0;
+
+      gallery.textContent = "";
+      entries.forEach(({ shape, shapeNumber, orders }) => {
+        if (orders.length > 1) {
+          multiOrderCount += 1;
+        }
+
+        gallery.append(makeCard(shape, shapeNumber, orders));
+      });
+
+      document.querySelector("#versionNote").textContent =
+        `Review build 2026-06-06 · ${entries.length} order-table shapes · ${multiOrderCount} multi-order shapes`;
+    }
+
+    async function fetchText(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Could not load ${url}`);
+      }
+      return response.text();
+    }
+
+    async function fetchJson(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Could not load ${url}`);
+      }
+      return response.json();
+    }
+
+    function ordersForShapeKey(shapeKey, coordOrders) {
+      const coordStrings = shapeKey.split(";");
+
+      return coordOrders.map((coordOrder) => coordOrder
+        .map((coord) => String(coordStrings.indexOf(coord) + 1))
+        .join(""));
+    }
+
+    function makeCard(shape, shapeNumber, orders) {
+      const card = document.createElement("article");
+      const title = document.createElement("div");
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const allowed = document.createElement("div");
+      const rawOrders = document.createElement("div");
+      const coords = document.createElement("div");
+      const primaryOrder = orders[0] || "1234";
+      const lettersByCell = lettersForOrder(primaryOrder);
+      const allowedReadings = orders.map((order) => readingForOrder(order, lettersByCell));
+
+      card.className = "shape-card";
+      title.className = "shape-title";
+      title.innerHTML = `<span>Shape ${shapeNumber}</span><span class="primary-order">base ${primaryOrder}</span>`;
+      svg.setAttribute("viewBox", boundsFor(shape, HEX_SIZE).join(" "));
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", `Tetrahex shape ${shapeNumber}, allowed readings ${allowedReadings.join(", ")}`);
+
+      shape.forEach(([q, r], cellIndex) => {
+        const [x, y] = axialToPixel(q, r, HEX_SIZE);
+        const outer = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        const inner = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        const letter = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+        outer.setAttribute("class", "hex");
+        outer.setAttribute("points", OUTER_POINTS);
+        outer.setAttribute("transform", `translate(${x} ${y})`);
+        inner.setAttribute("class", "inner");
+        inner.setAttribute("points", INNER_POINTS);
+        inner.setAttribute("transform", `translate(${x} ${y})`);
+        letter.setAttribute("class", "letter");
+        letter.setAttribute("x", x);
+        letter.setAttribute("y", y + 1);
+        letter.textContent = lettersByCell[cellIndex] || "";
+        svg.append(outer, inner, letter);
+      });
+
+      allowed.className = "allowed";
+      allowed.textContent = `Allowed: ${allowedReadings.join(", ")}`;
+      rawOrders.className = "raw-orders";
+      rawOrders.textContent = `Raw: ${orders.join(", ")}`;
+      coords.className = "coords";
+      coords.textContent = shape.map(([q, r]) => `${q},${r}`).join("; ");
+      card.append(title, svg, allowed, rawOrders, coords);
+      return card;
+    }
+
+    function lettersForOrder(order) {
+      const letters = [];
+
+      [...order].forEach((rawIndex, letterIndex) => {
+        letters[Number(rawIndex) - 1] = WORD[letterIndex];
+      });
+
+      return letters;
+    }
+
+    function readingForOrder(order, lettersByCell) {
+      return [...order].map((rawIndex) => lettersByCell[Number(rawIndex) - 1]).join("");
+    }
+
+    function parseShape(line) {
+      return line.split(";").map((part) => part.split(",").map(Number));
+    }
+
+    function axialToPixel(q, r, size) {
+      return [
+        size * Math.sqrt(3) * (q + r / 2),
+        size * 1.5 * r,
+      ];
+    }
+
+    function hexPoints(size) {
+      const points = [];
+
+      for (let i = 0; i < 6; i += 1) {
+        const angle = Math.PI / 180 * (60 * i - 30);
+        points.push([Math.cos(angle) * size, Math.sin(angle) * size]);
+      }
+
+      return points;
+    }
+
+    function boundsFor(shape, size) {
+      const points = shape.flatMap(([q, r]) => {
+        const [x, y] = axialToPixel(q, r, size);
+        return hexPoints(size).map(([px, py]) => [x + px, y + py]);
+      });
+      const xs = points.map(([x]) => x);
+      const ys = points.map(([, y]) => y);
+      const pad = size * 0.7;
+      const minX = Math.min(...xs) - pad;
+      const minY = Math.min(...ys) - pad;
+      const maxX = Math.max(...xs) + pad;
+      const maxY = Math.max(...ys) + pad;
+
+      return [minX, minY, maxX - minX, maxY - minY];
+    }
+  </script>
+</body>
+</html>

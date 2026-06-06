@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mixed Polyhex Tilings Preview</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #26313a;
+      --muted: #6c7680;
+      --paper: #f6f9fb;
+      --card: #ffffff;
+      --line: #d9e2e8;
+      --tetra: #8acbf0;
+      --pent-a: #ffd46b;
+      --pent-b: #83d4bc;
+      --pent-c: #d99ac7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 3vw, 2.5rem);
+      letter-spacing: 0;
+    }
+
+    .note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.45;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 18px;
+      clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+      background: var(--color);
+      border: 2px solid color-mix(in srgb, var(--color), #333 24%);
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+
+    .tiling-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 12px 28px rgba(34, 44, 52, 0.08);
+      padding: 10px;
+    }
+
+    .tiling-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .tiling-string {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      color: #87929a;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1.05;
+      overflow: visible;
+    }
+
+    .hex {
+      stroke: rgba(43, 52, 59, 0.32);
+      stroke-width: 3;
+      paint-order: stroke fill;
+    }
+
+    .hex.label-0 {
+      fill: var(--tetra);
+    }
+
+    .hex.label-1 {
+      fill: var(--pent-a);
+    }
+
+    .hex.label-2 {
+      fill: var(--pent-b);
+    }
+
+    .hex.label-3 {
+      fill: var(--pent-c);
+    }
+
+    .hex-text {
+      fill: var(--ink);
+      font-size: 21px;
+      font-weight: 800;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Radius-2 Mixed Tilings</h1>
+        <p class="note">One tetrahex plus three penthexes. Label 0 is the tetrahex; labels 1, 2, and 3 are penthexes.</p>
+      </div>
+      <div class="legend" aria-label="Legend">
+        <span><i class="swatch" style="--color: var(--tetra)"></i>0 tetrahex</span>
+        <span><i class="swatch" style="--color: var(--pent-a)"></i>1 penthex</span>
+        <span><i class="swatch" style="--color: var(--pent-b)"></i>2 penthex</span>
+        <span><i class="swatch" style="--color: var(--pent-c)"></i>3 penthex</span>
+      </div>
+    </header>
+
+    <section class="gallery" id="gallery"></section>
+  </main>
+
+  <script>
+    const NEIGHBORS = [
+      [1, 0],
+      [1, -1],
+      [0, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, 1],
+    ];
+    const PIECE_ORDERS = [4, 5, 5, 5];
+    const CELLS = radiusCells(2);
+    const TILINGS = generateMixedTilings(CELLS, PIECE_ORDERS);
+    const HEX_SIZE = 18;
+    const VIEWBOX = boundsFor(CELLS, HEX_SIZE);
+    const HEX_POINTS = hexPoints(HEX_SIZE).map(([x, y]) => `${x},${y}`).join(" ");
+
+    render();
+
+    function render() {
+      const gallery = document.querySelector("#gallery");
+      gallery.textContent = "";
+
+      TILINGS.forEach((tiling, index) => {
+        const card = document.createElement("article");
+        card.className = "tiling-card";
+
+        const title = document.createElement("div");
+        title.className = "tiling-title";
+        title.innerHTML = `<span>#${index + 1}</span><span class="tiling-string">${tiling}</span>`;
+        card.append(title);
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", VIEWBOX.join(" "));
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", `Mixed polyhex tiling ${index + 1}`);
+
+        CELLS.forEach((cell, cellIndex) => {
+          const label = tiling[cellIndex];
+          const [x, y] = axialToPixel(cell.q, cell.r, HEX_SIZE);
+          const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+          polygon.setAttribute("class", `hex label-${label}`);
+          polygon.setAttribute("points", HEX_POINTS);
+          polygon.setAttribute("transform", `translate(${x} ${y})`);
+          svg.append(polygon);
+
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("class", "hex-text");
+          text.setAttribute("x", x);
+          text.setAttribute("y", y + 1);
+          text.textContent = label;
+          svg.append(text);
+        });
+
+        card.append(svg);
+        gallery.append(card);
+      });
+    }
+
+    function generateMixedTilings(cells, pieceOrders) {
+      const labels = "0123456789abcdefghijklmnopqrstuvwxyz";
+      const shapesByOrder = new Map([...new Set(pieceOrders)].map((order) => [order, fixedPolyhexes(order)]));
+      const placementsByOrder = new Map([...shapesByOrder].map(([order, shapes]) => [
+        order,
+        buildPlacementsByCell(cells, shapes),
+      ]));
+      const labelsByOrder = new Map();
+      const board = Array(cells.length).fill(-1);
+      const tilings = [];
+
+      pieceOrders.forEach((order, label) => {
+        if (!labelsByOrder.has(order)) {
+          labelsByOrder.set(order, []);
+        }
+        labelsByOrder.get(order).push(label);
+      });
+
+      search(new Set());
+      return tilings;
+
+      function search(usedLabels) {
+        const firstEmpty = board.findIndex((value) => value === -1);
+
+        if (firstEmpty === -1) {
+          if (usedLabels.size === pieceOrders.length) {
+            tilings.push(board.map((value) => labels[value]).join(""));
+          }
+          return;
+        }
+
+        const remainingEmpty = board.filter((value) => value === -1).length;
+        const remainingPieceCells = pieceOrders.reduce(
+          (total, order, label) => total + (usedLabels.has(label) ? 0 : order),
+          0
+        );
+
+        if (remainingEmpty !== remainingPieceCells) {
+          return;
+        }
+
+        [...labelsByOrder.keys()].sort((a, b) => a - b).forEach((order) => {
+          const remainingLabels = labelsByOrder.get(order).filter((label) => !usedLabels.has(label));
+
+          if (remainingLabels.length === 0) {
+            return;
+          }
+
+          const label = remainingLabels[0];
+          placementsByOrder.get(order)[firstEmpty].forEach((placement) => {
+            if (placement.some((cellIndex) => board[cellIndex] !== -1)) {
+              return;
+            }
+
+            placement.forEach((cellIndex) => {
+              board[cellIndex] = label;
+            });
+            usedLabels.add(label);
+
+            search(usedLabels);
+
+            usedLabels.delete(label);
+            placement.forEach((cellIndex) => {
+              board[cellIndex] = -1;
+            });
+          });
+        });
+      }
+    }
+
+    function buildPlacementsByCell(cells, shapes) {
+      const indexByCell = new Map(cells.map((cell, index) => [`${cell.q},${cell.r}`, index]));
+      const placementKeys = new Set();
+      const placementsByCell = cells.map(() => []);
+
+      shapes.forEach((shape) => {
+        cells.forEach((anchor) => {
+          const translated = shape.map(([q, r]) => [q + anchor.q, r + anchor.r]);
+
+          if (!translated.every(([q, r]) => indexByCell.has(`${q},${r}`))) {
+            return;
+          }
+
+          const placement = translated
+            .map(([q, r]) => indexByCell.get(`${q},${r}`))
+            .sort((a, b) => a - b);
+          placementKeys.add(placement.join(","));
+        });
+      });
+
+      [...placementKeys].sort().forEach((placementKey) => {
+        const placement = placementKey.split(",").map(Number);
+        placement.forEach((cellIndex) => placementsByCell[cellIndex].push(placement));
+      });
+
+      return placementsByCell;
+    }
+
+    function fixedPolyhexes(order) {
+      const shapes = new Map();
+
+      freePolyhexes(order).forEach((shape) => {
+        transformsOf(shape).forEach((orientation) => {
+          shapes.set(shapeKey(orientation), orientation);
+        });
+      });
+
+      return [...shapes.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, shape]) => shape);
+    }
+
+    function freePolyhexes(order) {
+      let shapes = new Map([[shapeKey([[0, 0]]), [[0, 0]]]]);
+
+      for (let size = 1; size < order; size += 1) {
+        const nextShapes = new Map();
+
+        shapes.forEach((shape) => {
+          const occupied = new Set(shape.map(([q, r]) => `${q},${r}`));
+
+          shape.forEach(([q, r]) => {
+            NEIGHBORS.forEach(([dq, dr]) => {
+              const neighbor = [q + dq, r + dr];
+
+              if (occupied.has(`${neighbor[0]},${neighbor[1]}`)) {
+                return;
+              }
+
+              const canonicalShape = canonical([...shape, neighbor]);
+              nextShapes.set(shapeKey(canonicalShape), canonicalShape);
+            });
+          });
+        });
+
+        shapes = nextShapes;
+      }
+
+      return [...shapes.values()];
+    }
+
+    function canonical(cells) {
+      return transformsOf(cells).sort((a, b) => shapeKey(a).localeCompare(shapeKey(b)))[0];
+    }
+
+    function transformsOf(cells) {
+      const seen = new Map();
+
+      [false, true].forEach((isReflected) => {
+        const base = isReflected ? reflect(cells) : cells;
+
+        for (let turns = 0; turns < 6; turns += 1) {
+          const orientation = normalize(base.map((cell) => rotate(cell, turns)));
+          seen.set(shapeKey(orientation), orientation);
+        }
+      });
+
+      return [...seen.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, shape]) => shape);
+    }
+
+    function rotate(cell, turns) {
+      let [q, r] = cell;
+      let x = q;
+      let y = -q - r;
+      let z = r;
+
+      for (let turn = 0; turn < turns % 6; turn += 1) {
+        [x, y, z] = [-z, -x, -y];
+      }
+
+      return [x, z];
+    }
+
+    function reflect(cells) {
+      return cells.map(([q, r]) => [r, q]);
+    }
+
+    function normalize(cells) {
+      const minQ = Math.min(...cells.map(([q]) => q));
+      const minR = Math.min(...cells.map(([, r]) => r));
+
+      return cells
+        .map(([q, r]) => [q - minQ, r - minR])
+        .sort(([aq, ar], [bq, br]) => aq - bq || ar - br);
+    }
+
+    function shapeKey(cells) {
+      return normalize(cells).map(([q, r]) => `${q},${r}`).join(";");
+    }
+
+    function radiusCells(radius) {
+      const cells = [];
+      for (let q = -radius; q <= radius; q += 1) {
+        for (let r = -radius; r <= radius; r += 1) {
+          const s = -q - r;
+          if (Math.max(Math.abs(q), Math.abs(r), Math.abs(s)) <= radius) {
+            cells.push({ q, r });
+          }
+        }
+      }
+      return cells.sort((a, b) => a.r - b.r || a.q - b.q);
+    }
+
+    function axialToPixel(q, r, size) {
+      return [
+        size * Math.sqrt(3) * (q + r / 2),
+        size * 1.5 * r,
+      ];
+    }
+
+    function hexPoints(size) {
+      const points = [];
+      for (let i = 0; i < 6; i += 1) {
+        const angle = Math.PI / 180 * (60 * i - 30);
+        points.push([Math.cos(angle) * size, Math.sin(angle) * size]);
+      }
+      return points;
+    }
+
+    function boundsFor(cells, size) {
+      const points = cells.flatMap(({ q, r }) => {
+        const [x, y] = axialToPixel(q, r, size);
+        return hexPoints(size).map(([px, py]) => [x + px, y + py]);
+      });
+      const xs = points.map(([x]) => x);
+      const ys = points.map(([, y]) => y);
+      const pad = size * 0.8;
+      const minX = Math.min(...xs) - pad;
+      const minY = Math.min(...ys) - pad;
+      const maxX = Math.max(...xs) + pad;
+      const maxY = Math.max(...ys) + pad;
+      return [minX, minY, maxX - minX, maxY - minY];
+    }
+  </script>
+</body>
+</html>

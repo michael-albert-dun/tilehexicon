@@ -61,9 +61,22 @@ def main() -> None:
         action="store_true",
         help="Only write the fixed polyhex shape descriptions.",
     )
+    parser.add_argument(
+        "--piece-orders",
+        help=(
+            "Comma-separated piece sizes for a mixed exact cover. "
+            "For example, 4,5,5,5 tiles a radius-2 board with one tetrahex and three penthexes."
+        ),
+    )
     args = parser.parse_args()
 
     DATA_DIR.mkdir(exist_ok=True)
+
+    if args.piece_orders:
+        piece_orders = parse_piece_orders(args.piece_orders)
+        write_mixed_tilings(args.radius, args.holes, piece_orders)
+        return
+
     fixed_shapes = fixed_polyhexes(args.order)
 
     write_shapes(args.order, fixed_shapes)
@@ -107,6 +120,43 @@ def write_tilings(order: int, radius: int, holes: int, shapes: list[Shape]) -> N
 
     with output_path.open("w", encoding="utf-8") as output:
         for tiling in generate_tilings(order, cells, holes, shapes):
+            output.write(f"{tiling}\n")
+            count += 1
+
+    print(f"Wrote {count} tilings")
+
+
+def write_mixed_tilings(radius: int, holes: int, piece_orders: list[int]) -> None:
+    cells = radius_cells(radius)
+    cell_count = len(cells)
+    covered_cells = cell_count - holes
+    required_cells = sum(piece_orders)
+
+    if required_cells != covered_cells:
+        raise ValueError(
+            f"Radius {radius} with {holes} holes leaves {covered_cells} cells, "
+            f"but piece orders {piece_orders} cover {required_cells}"
+        )
+
+    if len(piece_orders) > len(LABELS):
+        raise ValueError("Not enough labels for this board")
+
+    shapes_by_order = {order: fixed_polyhexes(order) for order in sorted(set(piece_orders))}
+    orders_text = "-".join(str(order) for order in piece_orders)
+    output_path = DATA_DIR / f"polyhex-tilings-radius-{radius}-orders-{orders_text}-holes-{holes}.txt"
+    count = 0
+
+    pieces_text = ", ".join(
+        f"{piece_orders.count(order)} {polyhex_name(order)}{'es' if piece_orders.count(order) != 1 else ''}"
+        for order in sorted(set(piece_orders))
+    )
+    print(
+        f"Generating radius {radius}, {holes} holes with {pieces_text} "
+        f"-> {output_path.relative_to(ROOT_DIR)}"
+    )
+
+    with output_path.open("w", encoding="utf-8") as output:
+        for tiling in generate_mixed_tilings(cells, holes, piece_orders, shapes_by_order):
             output.write(f"{tiling}\n")
             count += 1
 
@@ -160,6 +210,72 @@ def generate_tilings(order: int, cells: list[Cell], holes: int, shapes: list[Sha
     yield from search(0, 0)
 
 
+def generate_mixed_tilings(
+    cells: list[Cell],
+    holes: int,
+    piece_orders: list[int],
+    shapes_by_order: dict[int, list[Shape]],
+):
+    index_by_cell = {cell: index for index, cell in enumerate(cells)}
+    placements_by_order = {
+        order: build_placements_by_cell(cells, index_by_cell, shapes)
+        for order, shapes in shapes_by_order.items()
+    }
+    board = [-1] * len(cells)
+    labels_by_order: dict[int, list[int]] = {}
+
+    for label, order in enumerate(piece_orders):
+        labels_by_order.setdefault(order, []).append(label)
+
+    def search(used_labels: set[int], holes_used: int):
+        first_empty = find_first_empty(board)
+
+        if first_empty is None:
+            if holes_used == holes and len(used_labels) == len(piece_orders):
+                yield "".join("." if value == -2 else LABELS[value] for value in board)
+            return
+
+        remaining_empty = board.count(-1)
+        remaining_holes = holes - holes_used
+        remaining_piece_cells = sum(
+            order for label, order in enumerate(piece_orders) if label not in used_labels
+        )
+
+        if remaining_holes < 0 or remaining_piece_cells < 0:
+            return
+
+        if remaining_empty != remaining_holes + remaining_piece_cells:
+            return
+
+        if holes_used < holes:
+            board[first_empty] = -2
+            yield from search(used_labels, holes_used + 1)
+            board[first_empty] = -1
+
+        for order in sorted(labels_by_order):
+            remaining_labels = [label for label in labels_by_order[order] if label not in used_labels]
+
+            if not remaining_labels:
+                continue
+
+            label = remaining_labels[0]
+            for placement in placements_by_order[order][first_empty]:
+                if any(board[cell] != -1 for cell in placement):
+                    continue
+
+                for cell in placement:
+                    board[cell] = label
+
+                used_labels.add(label)
+                yield from search(used_labels, holes_used)
+                used_labels.remove(label)
+
+                for cell in placement:
+                    board[cell] = -1
+
+    yield from search(set(), 0)
+
+
 def build_placements_by_cell(
     cells: list[Cell],
     index_by_cell: dict[Cell, int],
@@ -191,6 +307,21 @@ def fixed_polyhexes(order: int) -> list[Shape]:
 
 def polyhex_name(order: int) -> str:
     return POLYHEX_NAMES.get(order, f"{order}-hex")
+
+
+def parse_piece_orders(value: str) -> list[int]:
+    try:
+        orders = [int(part.strip()) for part in value.split(",") if part.strip()]
+    except ValueError as error:
+        raise ValueError(f"Invalid --piece-orders value: {value}") from error
+
+    if not orders:
+        raise ValueError("--piece-orders must include at least one order")
+
+    if any(order < 1 for order in orders):
+        raise ValueError("--piece-orders must contain positive integers")
+
+    return orders
 
 
 def free_polyhexes(order: int) -> set[Shape]:

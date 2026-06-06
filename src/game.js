@@ -1,5 +1,7 @@
 const BOARD_RADIUS = 2;
-const WORD_LENGTH = 4;
+const MIN_WORD_LENGTH = 4;
+const MAX_WORD_LENGTH = 5;
+const FOUR_LETTER_COMMIT_DELAY = 800;
 const HEX_SIZE = 45;
 const SVG_CENTER = { x: 310, y: 235 };
 const LOCK_COLORS = [
@@ -24,80 +26,38 @@ const NEIGHBORS = [
 const BOARD_PARAM = "b";
 const SOLUTION_PARAM = "s";
 const SOLUTION_CHARS = "abcde";
-const SHAPE_GENERATION_ORDERS = {
-  "0,0;0,1;0,2;1,1": [
-    ["0,0", "0,1", "0,2", "1,1"],
-    ["0,0", "0,1", "1,1", "0,2"]
-  ],
-  "0,0;0,1;1,0;1,1": [
-    ["0,0", "0,1", "1,0", "1,1"],
-    ["0,0", "1,0", "0,1", "1,1"]
-  ],
-  "0,0;0,2;1,0;1,1": [
-    ["0,0", "1,0", "1,1", "0,2"]
-  ],
-  "0,0;1,0;1,1;2,0": [
-    ["0,0", "1,0", "1,1", "2,0"],
-    ["0,0", "1,0", "2,0", "1,1"]
-  ],
-  "0,1;0,2;0,3;1,0": [
-    ["1,0", "0,1", "0,2", "0,3"]
-  ],
-  "0,1;0,2;1,0;1,1": [
-    ["1,0", "0,1", "1,1", "0,2"]
-  ],
-  "0,1;0,2;1,0;1,2": [
-    ["1,0", "0,1", "0,2", "1,2"]
-  ],
-  "0,1;0,2;1,0;2,0": [
-    ["0,2", "0,1", "1,0", "2,0"]
-  ],
-  "0,1;1,1;1,2;2,0": [
-    ["0,1", "1,1", "2,0", "1,2"]
-  ],
-  "0,2;0,3;1,0;1,1": [
-    ["1,0", "1,1", "0,2", "0,3"]
-  ],
-  "0,2;0,3;1,1;2,0": [
-    ["2,0", "1,1", "0,2", "0,3"]
-  ],
-  "0,2;1,0;1,1;1,2": [
-    ["1,0", "1,1", "0,2", "1,2"]
-  ],
-  "0,2;1,0;1,1;2,0": [
-    ["1,0", "2,0", "1,1", "0,2"]
-  ],
-  "0,2;1,0;1,1;2,1": [
-    ["1,0", "0,2", "1,1", "2,1"]
-  ],
-  "0,2;1,1;1,2;2,0": [
-    ["2,0", "1,1", "0,2", "1,2"]
-  ],
-  "0,2;1,2;2,0;2,1": [
-    ["0,2", "1,2", "2,1", "2,0"]
-  ],
-  "0,3;1,0;1,1;1,2": [
-    ["1,0", "1,1", "1,2", "0,3"]
-  ],
-  "0,3;1,1;1,2;2,0": [
-    ["2,0", "1,1", "1,2", "0,3"]
-  ],
-  "0,3;1,2;2,0;2,1": [
-    ["2,0", "2,1", "1,2", "0,3"]
-  ]
-};
-
+const TILING_GROUPS = [
+  {
+    penthexes: 0,
+    url: "data/tetrahex-tilings-radius-2-holes-3.txt"
+  },
+  {
+    penthexes: 1,
+    url: "data/polyhex-tilings-radius-2-orders-4-4-4-5-holes-2.txt"
+  },
+  {
+    penthexes: 2,
+    url: "data/polyhex-tilings-radius-2-orders-4-4-5-5-holes-1.txt"
+  },
+  {
+    penthexes: 3,
+    url: "data/polyhex-tilings-radius-2-orders-4-5-5-5-holes-0.txt"
+  }
+];
 const state = {
   cells: [],
   selection: [],
   moves: [],
   locked: new Map(),
   invalidSelection: false,
+  pendingCommitTimer: null,
   activeMoveIndex: null,
   dragSelection: null,
   allowedWords: new Set(),
-  commonWords: [],
-  tilings: [],
+  commonWordsByLength: new Map(),
+  tilingGroups: [],
+  tetrahexGenerationOrders: {},
+  penthexGenerationOrders: {},
   solution: [],
   qSequence: ""
 };
@@ -125,17 +85,35 @@ async function init() {
 }
 
 async function loadData() {
-  const [allowedText, commonText, tilingsText] = await Promise.all([
-    fetchText("data/allowed-words.txt"),
+  const [
+    commonText,
+    commonFiveText,
+    tetrahexOrders,
+    penthexShapesText,
+    penthexOrders,
+    ...tilingTexts
+  ] = await Promise.all([
     fetchText("data/common-words.txt"),
-    fetchText("data/tetrahex-tilings-radius-2-holes-3.txt")
+    fetchText("data/common-words-5.txt"),
+    fetchJson("data/tetrahex-generation-orders.json"),
+    fetchText("data/penthex-shapes.txt"),
+    fetchJson("data/penthex-generation-orders.json"),
+    ...TILING_GROUPS.map((group) => fetchText(group.url))
   ]);
-  const allowedWords = parseWordList(allowedText);
   const commonWords = parseWordList(commonText);
+  const commonFiveWords = parseWordList(commonFiveText, 5);
 
-  state.allowedWords = new Set([...allowedWords, ...commonWords]);
-  state.commonWords = commonWords;
-  state.tilings = parseTilingText(tilingsText);
+  state.allowedWords = new Set([...commonWords, ...commonFiveWords]);
+  state.commonWordsByLength = new Map([
+    [4, commonWords],
+    [5, commonFiveWords]
+  ]);
+  state.tilingGroups = TILING_GROUPS.map((group, index) => ({
+    ...group,
+    tilings: parseTilingText(tilingTexts[index])
+  }));
+  state.tetrahexGenerationOrders = tetrahexOrders;
+  state.penthexGenerationOrders = buildPenthexGenerationOrders(penthexShapesText, penthexOrders);
 }
 
 async function fetchText(url) {
@@ -148,11 +126,21 @@ async function fetchText(url) {
   return response.text();
 }
 
-function parseWordList(text) {
+async function fetchJson(url) {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Could not load ${url}`);
+  }
+
+  return response.json();
+}
+
+function parseWordList(text, length = 4) {
   return text
     .split("\n")
     .map((word) => word.trim().toLowerCase())
-    .filter((word) => /^[a-z]{4}$/.test(word));
+    .filter((word) => new RegExp(`^[a-z]{${length}}$`).test(word));
 }
 
 function parseTilingText(text) {
@@ -180,9 +168,11 @@ function newPuzzle(options = {}) {
 }
 
 function makeRandomPuzzle(boardCells) {
-  const tiling = randomItem(state.tilings);
+  const group = randomItem(state.tilingGroups);
+  const tiling = randomItem(group.tilings);
   const pieces = compactTilingToPieces(tiling);
-  const words = randomWords(pieces.length);
+  const chosenWords = new Set();
+  const words = pieces.map((piece) => randomWord(piece.length, chosenWords));
 
   state.cells = makeEmptyCells(boardCells).filter((cell, index) => tiling[index] !== ".");
   state.solution = [];
@@ -232,6 +222,7 @@ function restartPuzzle() {
 }
 
 function resetProgress() {
+  cancelPendingCommit();
   state.selection = [];
   state.moves = [];
   state.locked = new Map();
@@ -240,8 +231,16 @@ function resetProgress() {
   state.dragSelection = null;
 }
 
+function cancelPendingCommit() {
+  if (state.pendingCommitTimer !== null) {
+    window.clearTimeout(state.pendingCommitTimer);
+    state.pendingCommitTimer = null;
+  }
+}
+
 function compactTilingToPieces(tiling) {
-  const pieces = Array.from({ length: 4 }, () => []);
+  const labelCount = Math.max(...[...tiling].filter((label) => label !== ".").map(Number)) + 1;
+  const pieces = Array.from({ length: labelCount }, () => []);
 
   [...tiling].forEach((label, index) => {
     if (label === ".") {
@@ -254,19 +253,16 @@ function compactTilingToPieces(tiling) {
   return pieces;
 }
 
-function randomWords(count) {
-  const chosen = new Set();
+function randomWord(length, chosenWords) {
+  const words = state.commonWordsByLength.get(length) || [];
+  let word = randomItem(words);
 
-  return Array.from({ length: count }, () => {
-    let word = randomItem(state.commonWords);
+  while (chosenWords.has(word)) {
+    word = randomItem(words);
+  }
 
-    while (chosen.has(word)) {
-      word = randomItem(state.commonWords);
-    }
-
-    chosen.add(word);
-    return word;
-  });
+  chosenWords.add(word);
+  return word;
 }
 
 function readPuzzleKey() {
@@ -370,11 +366,19 @@ function isValidSolution(board, solution) {
     counts[value] += 1;
   }
 
-  return counts[0] === 3 && counts.slice(1).every((count) => count === WORD_LENGTH);
+  const pieceCounts = counts.slice(1).filter((count) => count > 0);
+  const holeCount = counts[0];
+  const penthexCount = pieceCounts.filter((count) => count === 5).length;
+
+  return pieceCounts.length === 4 &&
+    pieceCounts.every((count) => count === 4 || count === 5) &&
+    holeCount === 3 - penthexCount;
 }
 
 function makeSolutionFromCells() {
-  return Array.from({ length: 4 }, (_, pieceIndex) => {
+  const pieceCount = Math.max(...state.cells.map((cell) => cell.pieceIndex)) + 1;
+
+  return Array.from({ length: pieceCount }, (_, pieceIndex) => {
     const cells = state.cells.filter((cell) => cell.pieceIndex === pieceIndex);
     const reading = generationReadingOrder(cells);
     const word = resolveWord(cells) || reading
@@ -530,7 +534,12 @@ function renderStatus() {
     return;
   }
 
-  elements.status.textContent = "Choose four edge-connected hexes to make a word.";
+  if (state.pendingCommitTimer !== null) {
+    elements.status.textContent = "Word ready. Add a fifth tile or press Enter.";
+    return;
+  }
+
+  elements.status.textContent = "Choose four or five edge-connected hexes to make a word.";
 }
 
 function selectCell(cell, event) {
@@ -540,10 +549,12 @@ function selectCell(cell, event) {
   }
 
   if (state.locked.has(cell.id)) {
+    cancelPendingCommit();
     handleLockedCellTap(cell);
     return;
   }
 
+  cancelPendingCommit();
   state.invalidSelection = false;
   state.activeMoveIndex = null;
 
@@ -553,14 +564,13 @@ function selectCell(cell, event) {
     return;
   }
 
-  if (state.selection.length >= WORD_LENGTH) {
+  if (state.selection.length >= MAX_WORD_LENGTH) {
     state.selection = [];
   }
 
   state.selection.push(cell.id);
 
-  if (state.selection.length === WORD_LENGTH) {
-    commitSelection();
+  if (shouldCommitSelection()) {
     return;
   }
 
@@ -579,10 +589,12 @@ function startDragSelection(cell, event) {
   };
 
   if (state.locked.has(cell.id)) {
+    cancelPendingCommit();
     state.dragSelection = null;
     return;
   }
 
+  cancelPendingCommit();
   event.preventDefault();
   event.currentTarget.setPointerCapture(event.pointerId);
 
@@ -634,17 +646,17 @@ function addCellToSelection(cell) {
     return;
   }
 
+  cancelPendingCommit();
   state.invalidSelection = false;
   state.activeMoveIndex = null;
 
-  if (state.selection.length >= WORD_LENGTH) {
+  if (state.selection.length >= MAX_WORD_LENGTH) {
     state.selection = [];
   }
 
   state.selection.push(cell.id);
 
-  if (state.selection.length === WORD_LENGTH) {
-    commitSelection();
+  if (shouldCommitSelection()) {
     return;
   }
 
@@ -652,6 +664,7 @@ function addCellToSelection(cell) {
 }
 
 function commitSelection() {
+  cancelPendingCommit();
   const result = validateSelection(state.selection);
 
   if (!result.valid || !result.word) {
@@ -685,6 +698,51 @@ function commitSelection() {
   render();
 }
 
+function shouldCommitSelection() {
+  if (state.selection.length < MIN_WORD_LENGTH) {
+    render();
+    return false;
+  }
+
+  const result = validateSelection(state.selection);
+
+  if (state.selection.length === MIN_WORD_LENGTH && result.valid && result.word) {
+    schedulePendingCommit();
+    render();
+    return true;
+  }
+
+  if (state.selection.length === MAX_WORD_LENGTH && result.valid && result.word) {
+    commitSelection();
+    return true;
+  }
+
+  if (state.selection.length === MAX_WORD_LENGTH) {
+    commitSelection();
+    return true;
+  }
+
+  render();
+  return false;
+}
+
+function schedulePendingCommit() {
+  cancelPendingCommit();
+  state.pendingCommitTimer = window.setTimeout(() => {
+    state.pendingCommitTimer = null;
+    commitSelection();
+  }, FOUR_LETTER_COMMIT_DELAY);
+}
+
+function commitPendingSelection() {
+  if (state.pendingCommitTimer === null) {
+    return false;
+  }
+
+  commitSelection();
+  return true;
+}
+
 function handleLockedCellTap(cell) {
   const lockedMoveIndex = state.locked.get(cell.id);
 
@@ -692,6 +750,7 @@ function handleLockedCellTap(cell) {
     return;
   }
 
+  cancelPendingCommit();
   if (isDeleteAnchorCell(cell, lockedMoveIndex)) {
     deleteMove(lockedMoveIndex);
     return;
@@ -704,6 +763,7 @@ function handleLockedCellTap(cell) {
 }
 
 function selectMoveLine(index) {
+  cancelPendingCommit();
   state.selection = [];
   state.invalidSelection = false;
   state.activeMoveIndex = state.activeMoveIndex === index ? null : index;
@@ -715,6 +775,7 @@ function deleteMove(index) {
     return;
   }
 
+  cancelPendingCommit();
   state.moves.splice(index, 1);
   state.selection = [];
   state.invalidSelection = false;
@@ -753,7 +814,11 @@ function getMoveAnchorCellId(index) {
 }
 
 function validateSelection(selection) {
-  if (selection.length !== WORD_LENGTH || new Set(selection).size !== WORD_LENGTH) {
+  if (
+    selection.length < MIN_WORD_LENGTH ||
+    selection.length > MAX_WORD_LENGTH ||
+    new Set(selection).size !== selection.length
+  ) {
     return { valid: false, word: null };
   }
 
@@ -847,11 +912,37 @@ function generationReadingOrders(cells) {
 
 function keyedGenerationOrders(cells) {
   const key = shapeKey(cells);
-  const orders = SHAPE_GENERATION_ORDERS[key] || [];
+  const orders = cells.length === 5
+    ? state.penthexGenerationOrders[key] || []
+    : state.tetrahexGenerationOrders[key] || [];
 
   return orders
     .map((order) => cellsByShapeOffsets(cells, order))
     .filter((order) => order.length === cells.length);
+}
+
+function buildPenthexGenerationOrders(shapesText, orderTable) {
+  const ordersByShapeKey = {};
+
+  shapesText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line, index) => {
+      const shape = line.split(";").map(parseCoordKey);
+      const shapeIndex = String(index + 1);
+      const orders = orderTable[shapeIndex] || [];
+
+      ordersByShapeKey[line] = orders.map((order) => {
+        return [...order].map((cellIndex) => coordKey(shape[Number(cellIndex) - 1]));
+      });
+    });
+
+  return ordersByShapeKey;
+}
+
+function parseCoordKey(key) {
+  return key.split(",").map(Number);
 }
 
 function cellsByShapeOffsets(cells, offsets) {
@@ -924,6 +1015,19 @@ function handleKeyDown(event) {
 
   state.qSequence = "";
 
+  if (event.key === "Enter") {
+    if (commitPendingSelection()) {
+      event.preventDefault();
+      return;
+    }
+
+    if (state.selection.length >= MIN_WORD_LENGTH && validateSelection(state.selection).word) {
+      event.preventDefault();
+      commitSelection();
+      return;
+    }
+  }
+
   if (state.activeMoveIndex !== null && event.key === "Backspace") {
     event.preventDefault();
     deleteMove(state.activeMoveIndex);
@@ -932,6 +1036,7 @@ function handleKeyDown(event) {
 
   if (event.key === "Backspace") {
     event.preventDefault();
+    cancelPendingCommit();
     state.selection.pop();
     state.invalidSelection = false;
     render();
@@ -939,6 +1044,7 @@ function handleKeyDown(event) {
 }
 
 function showOriginalTiling() {
+  cancelPendingCommit();
   state.selection = [];
   state.invalidSelection = false;
   state.activeMoveIndex = null;

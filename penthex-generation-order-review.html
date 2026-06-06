@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Penthex Generation Order Review</title>
+  <style>
+    :root {
+      --page: #f4f8fb;
+      --card: #ffffff;
+      --ink: #26313a;
+      --muted: #6b7782;
+      --line: #d8e2e9;
+      --tile: #8acbf0;
+      --tile-edge: #6aa6c1;
+      --tile-inner: #b8e8ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1360px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    header {
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.65rem, 3vw, 2.6rem);
+      letter-spacing: 0;
+    }
+
+    .note {
+      max-width: 840px;
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.45;
+    }
+
+    .version-note {
+      margin-top: 6px;
+      color: #94a1aa;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap: 16px;
+    }
+
+    .shape-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 12px 28px rgba(34, 44, 52, 0.08);
+      padding: 10px;
+    }
+
+    .shape-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .shape-order {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #8b98a2;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1.08;
+      overflow: visible;
+    }
+
+    .hex {
+      fill: var(--tile);
+      stroke: var(--tile-edge);
+      stroke-width: 3.8;
+      paint-order: stroke fill;
+      filter: drop-shadow(0 6px 7px rgba(38, 49, 58, 0.12));
+    }
+
+    .inner {
+      fill: none;
+      stroke: var(--tile-inner);
+      stroke-width: 2.7;
+      opacity: 0.95;
+      pointer-events: none;
+    }
+
+    .cell-number {
+      fill: var(--ink);
+      font-size: 24px;
+      font-weight: 850;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .coords {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #99a5ad;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.66rem;
+    }
+
+    .paths {
+      margin-top: 4px;
+      color: #7d8a94;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.66rem;
+      line-height: 1.3;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Penthex Generation Order Review</h1>
+      <p class="note">
+        Each card is one fixed penthex orientation, numbered to match the generated shape list.
+        Single-path penthexes, shapes with a unique right/down path, shapes with
+        a unique two-move-type path, shapes with a unique horizontal/down legal
+        path, two-legal-path shapes with a rightward first-step preference, and
+        shapes with a unique always-rightward path, and height-four shapes are
+        omitted here because they have an unambiguous standard order.
+        The cell labels are raw shape indices; the top-right sequence is my
+        first-pass guess at natural generation order. Shape coordinates are shown
+        below each tile for cross-checking.
+      </p>
+      <div class="version-note" id="versionNote">Review build 2026-06-06g</div>
+    </header>
+
+    <section class="gallery" id="gallery"></section>
+  </main>
+
+  <script>
+    const NEIGHBORS = [
+      [1, 0],
+      [1, -1],
+      [0, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, 1],
+    ];
+    const HEX_SIZE = 24;
+    const OUTER_POINTS = hexPoints(HEX_SIZE).map(([x, y]) => `${x},${y}`).join(" ");
+    const INNER_POINTS = hexPoints(HEX_SIZE * 0.72).map(([x, y]) => `${x},${y}`).join(" ");
+
+    render();
+
+    function render() {
+      const gallery = document.querySelector("#gallery");
+      const versionNote = document.querySelector("#versionNote");
+      const shapes = fixedPolyhexes(5);
+      let visibleCount = 0;
+      let visibleWithLegalPaths = 0;
+      let visibleWithTwoMovePaths = 0;
+
+      shapes.forEach((shape, index) => {
+        if (
+          isSinglePathShape(shape)
+          || hasUniqueRightDownPath(shape)
+          || hasUniqueTwoMoveTypePath(shape)
+          || hasUniqueHorizontalDownLegalPath(shape)
+          || hasTwoLegalPathsWithRightwardPreference(shape)
+          || hasUniqueAlwaysRightwardPath(shape)
+          || hasFourLevels(shape)
+        ) {
+          return;
+        }
+
+        const order = guessGenerationOrder(shape);
+        const legalPaths = legalMovePathsForDisplay(shape);
+        const twoMovePaths = twoMoveTypePathsForDisplay(shape);
+        visibleCount += 1;
+        if (legalPaths.length > 0) {
+          visibleWithLegalPaths += 1;
+        }
+        if (twoMovePaths.length > 0) {
+          visibleWithTwoMovePaths += 1;
+        }
+        const card = document.createElement("article");
+        card.className = "shape-card";
+
+        const title = document.createElement("div");
+        title.className = "shape-title";
+        title.innerHTML = `
+          <span>Shape ${index + 1}</span>
+          <span class="shape-order">${order.map((cellIndex) => cellIndex + 1).join("-")}</span>
+        `;
+        card.append(title);
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", boundsFor(shape, HEX_SIZE).join(" "));
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", `Penthex shape ${index + 1}`);
+
+        shape.forEach(([q, r], cellIndex) => {
+          const [x, y] = axialToPixel(q, r, HEX_SIZE);
+
+          const outer = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+          outer.setAttribute("class", "hex");
+          outer.setAttribute("points", OUTER_POINTS);
+          outer.setAttribute("transform", `translate(${x} ${y})`);
+          svg.append(outer);
+
+          const inner = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+          inner.setAttribute("class", "inner");
+          inner.setAttribute("points", INNER_POINTS);
+          inner.setAttribute("transform", `translate(${x} ${y})`);
+          svg.append(inner);
+
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("class", "cell-number");
+          text.setAttribute("x", x);
+          text.setAttribute("y", y + 1);
+          text.textContent = cellIndex + 1;
+          svg.append(text);
+        });
+
+        card.append(svg);
+
+        const coords = document.createElement("div");
+        coords.className = "coords";
+        coords.textContent = shape.map(([q, r]) => `${q},${r}`).join("; ");
+        card.append(coords);
+
+        const paths = document.createElement("div");
+        paths.className = "paths";
+        paths.textContent = `LM: ${legalPaths.join(", ") || "none"} | 2M: ${twoMovePaths.join(", ") || "none"}`;
+        card.append(paths);
+
+        gallery.append(card);
+      });
+
+      versionNote.textContent = `Review build 2026-06-06g · ${visibleCount} cards · ${visibleWithLegalPaths} cards with legal paths · ${visibleWithTwoMovePaths} card with 2M alternatives`;
+    }
+
+    function isSinglePathShape(shape) {
+      const degrees = shape.map((cell) => {
+        const neighborKeys = new Set(NEIGHBORS.map(([dq, dr]) => `${cell[0] + dq},${cell[1] + dr}`));
+        return shape.filter(([q, r]) => neighborKeys.has(`${q},${r}`)).length;
+      });
+
+      return degrees.filter((degree) => degree === 1).length === 2
+        && degrees.filter((degree) => degree === 2).length === shape.length - 2;
+    }
+
+    function hasUniqueTwoMoveTypePath(shape) {
+      if (isSinglePathShape(shape)) {
+        return false;
+      }
+
+      const twoMoveTypePaths = hamiltonianPaths(shape).filter((path) => isTwoMoveTypePath(shape, path));
+      return twoMoveTypePaths.length === 1;
+    }
+
+    function hasUniqueHorizontalDownLegalPath(shape) {
+      if (isSinglePathShape(shape)) {
+        return false;
+      }
+
+      const horizontalDownPaths = hamiltonianPaths(shape).filter((path) => isHorizontalDownLegalPath(shape, path));
+      return horizontalDownPaths.length === 1;
+    }
+
+    function hasTwoLegalPathsWithRightwardPreference(shape) {
+      if (isSinglePathShape(shape)) {
+        return false;
+      }
+
+      const legalPaths = hamiltonianPaths(shape).filter((path) => isLegalMovePath(shape, path));
+
+      if (legalPaths.length !== 2) {
+        return false;
+      }
+
+      const firstDirections = legalPaths.map((path) => firstStepDirection(shape, path));
+      return firstDirections.includes("right") && firstDirections.includes("left");
+    }
+
+    function hasUniqueAlwaysRightwardPath(shape) {
+      if (isSinglePathShape(shape)) {
+        return false;
+      }
+
+      const rightwardPaths = hamiltonianPaths(shape).filter((path) => isAlwaysRightwardPath(shape, path));
+      return rightwardPaths.length === 1;
+    }
+
+    function hasFourLevels(shape) {
+      return new Set(shape.map(([, r]) => r)).size === 4;
+    }
+
+    function hasUniqueRightDownPath(shape) {
+      if (isSinglePathShape(shape)) {
+        return false;
+      }
+
+      const rightDownPaths = hamiltonianPaths(shape).filter((path) => isRightDownPath(shape, path));
+      return rightDownPaths.length === 1;
+    }
+
+    function isRightDownPath(shape, path) {
+      return path.every((cellIndex, index) => {
+        if (index === 0) {
+          return true;
+        }
+
+        const [fromQ, fromR] = shape[path[index - 1]];
+        const [toQ, toR] = shape[cellIndex];
+        const [fromX, fromY] = axialToPixel(fromQ, fromR, HEX_SIZE);
+        const [toX, toY] = axialToPixel(toQ, toR, HEX_SIZE);
+
+        return toX > fromX || toY > fromY;
+      });
+    }
+
+    function isTwoMoveTypePath(shape, path) {
+      const moveTypes = new Set();
+
+      const usesOnlyAllowedMoves = path.every((cellIndex, index) => {
+        if (index === 0) {
+          return true;
+        }
+
+        const moveType = classifyMove(shape[path[index - 1]], shape[cellIndex]);
+
+        if (!moveType) {
+          return false;
+        }
+
+        moveTypes.add(moveType);
+        return true;
+      });
+
+      return usesOnlyAllowedMoves && moveTypes.size <= 2;
+    }
+
+    function isLegalMovePath(shape, path) {
+      return path.every((cellIndex, index) => {
+        if (index === 0) {
+          return true;
+        }
+
+        return Boolean(classifyMove(shape[path[index - 1]], shape[cellIndex]));
+      });
+    }
+
+    function isHorizontalDownLegalPath(shape, path) {
+      return path.every((cellIndex, index) => {
+        if (index === 0) {
+          return true;
+        }
+
+        const moveType = classifyMove(shape[path[index - 1]], shape[cellIndex]);
+        return moveType === "RH" || moveType === "RD" || moveType === "LD";
+      });
+    }
+
+    function firstStepDirection(shape, path) {
+      if (path.length < 2) {
+        return "none";
+      }
+
+      const [fromQ, fromR] = shape[path[0]];
+      const [toQ, toR] = shape[path[1]];
+      const [fromX] = axialToPixel(fromQ, fromR, HEX_SIZE);
+      const [toX] = axialToPixel(toQ, toR, HEX_SIZE);
+
+      if (toX > fromX) {
+        return "right";
+      }
+
+      if (toX < fromX) {
+        return "left";
+      }
+
+      return "none";
+    }
+
+    function isAlwaysRightwardPath(shape, path) {
+      return path.every((cellIndex, index) => {
+        if (index === 0) {
+          return true;
+        }
+
+        const [fromQ, fromR] = shape[path[index - 1]];
+        const [toQ, toR] = shape[cellIndex];
+        const [fromX] = axialToPixel(fromQ, fromR, HEX_SIZE);
+        const [toX] = axialToPixel(toQ, toR, HEX_SIZE);
+
+        return toX > fromX;
+      });
+    }
+
+    function classifyMove(from, to) {
+      const dq = to[0] - from[0];
+      const dr = to[1] - from[1];
+      const key = `${dq},${dr}`;
+
+      return {
+        "1,-1": "RU",
+        "1,0": "RH",
+        "0,1": "RD",
+        "-1,1": "LD",
+      }[key] || null;
+    }
+
+    function twoMoveTypePathsForDisplay(shape) {
+      return hamiltonianPaths(shape)
+        .filter((path) => isTwoMoveTypePath(shape, path))
+        .map((path) => path.map((cellIndex) => cellIndex + 1).join("-"));
+    }
+
+    function legalMovePathsForDisplay(shape) {
+      return hamiltonianPaths(shape)
+        .filter((path) => isLegalMovePath(shape, path))
+        .map((path) => path.map((cellIndex) => cellIndex + 1).join("-"));
+    }
+
+    function guessGenerationOrder(shape) {
+      const paths = hamiltonianPaths(shape);
+
+      if (paths.length === 0) {
+        return sortedCellIndices(shape);
+      }
+
+      const legalPaths = paths.filter((path) => isLegalMovePath(shape, path));
+      const candidatePaths = legalPaths.length > 0 ? legalPaths : paths;
+
+      return candidatePaths
+        .map((path) => ({ path, score: scorePath(shape, path) }))
+        .sort((a, b) => b.score - a.score || orderKey(shape, a.path).localeCompare(orderKey(shape, b.path)))[0]
+        .path;
+    }
+
+    function hamiltonianPaths(shape) {
+      const adjacency = shape.map((cell) => {
+        const neighborKeys = new Set(NEIGHBORS.map(([dq, dr]) => `${cell[0] + dq},${cell[1] + dr}`));
+        return shape
+          .map((other, index) => ({ other, index }))
+          .filter(({ other }) => neighborKeys.has(`${other[0]},${other[1]}`))
+          .map(({ index }) => index);
+      });
+      const paths = [];
+
+      shape.forEach((_, start) => {
+        visit([start], new Set([start]));
+      });
+
+      return paths;
+
+      function visit(path, seen) {
+        if (path.length === shape.length) {
+          paths.push([...path]);
+          return;
+        }
+
+        adjacency[path[path.length - 1]].forEach((next) => {
+          if (seen.has(next)) {
+            return;
+          }
+
+          seen.add(next);
+          path.push(next);
+          visit(path, seen);
+          path.pop();
+          seen.delete(next);
+        });
+      }
+    }
+
+    function scorePath(shape, path) {
+      const positions = path.map((index) => {
+        const [q, r] = shape[index];
+        const [x, y] = axialToPixel(q, r, HEX_SIZE);
+        return { index, x, y };
+      });
+      const lrScore = directionalScore(shape, positions, "x", "y");
+      const tbScore = directionalScore(shape, positions, "y", "x");
+
+      return Math.max(lrScore, tbScore);
+    }
+
+    function directionalScore(shape, positions, primary, secondary) {
+      const rankedStarts = [...positions]
+        .sort((a, b) => a[primary] - b[primary] || a[secondary] - b[secondary])
+        .map(({ index }) => index);
+      let score = (positions.at(-1)[primary] - positions[0][primary]) * 0.45;
+
+      score -= rankedStarts.indexOf(positions[0].index) * 14;
+
+      for (let i = 1; i < positions.length; i += 1) {
+        const dp = positions[i][primary] - positions[i - 1][primary];
+        const ds = positions[i][secondary] - positions[i - 1][secondary];
+
+        score += dp > 0 ? 12 : dp === 0 ? 4 : -18;
+        score += ds > 0 ? 2 : ds === 0 ? 1 : -4;
+      }
+
+      if (isUniqueExtreme(shape, positions[0].index, primary, -1)) {
+        score += 18;
+      }
+
+      if (isUniqueExtreme(shape, positions.at(-1).index, primary, 1)) {
+        score += 8;
+      }
+
+      return score;
+    }
+
+    function isUniqueExtreme(shape, cellIndex, axis, direction) {
+      const values = shape.map(([q, r]) => {
+        const [x, y] = axialToPixel(q, r, HEX_SIZE);
+        return axis === "x" ? x : y;
+      });
+      const target = values[cellIndex];
+      const extreme = direction < 0 ? Math.min(...values) : Math.max(...values);
+
+      return Math.abs(target - extreme) < 0.001
+        && values.filter((value) => Math.abs(value - extreme) < 0.001).length === 1;
+    }
+
+    function sortedCellIndices(shape) {
+      return shape
+        .map(([q, r], index) => {
+          const [x, y] = axialToPixel(q, r, HEX_SIZE);
+          return { index, x, y };
+        })
+        .sort((a, b) => a.y - b.y || a.x - b.x)
+        .map(({ index }) => index);
+    }
+
+    function orderKey(shape, path) {
+      return path
+        .map((index) => {
+          const [q, r] = shape[index];
+          const [x, y] = axialToPixel(q, r, HEX_SIZE);
+          return `${Math.round(x + 500)},${Math.round(y + 500)}`;
+        })
+        .join(";");
+    }
+
+    function fixedPolyhexes(order) {
+      const shapes = new Map();
+
+      freePolyhexes(order).forEach((shape) => {
+        transformsOf(shape).forEach((orientation) => {
+          shapes.set(shapeKey(orientation), orientation);
+        });
+      });
+
+      return [...shapes.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, shape]) => shape);
+    }
+
+    function freePolyhexes(order) {
+      let shapes = new Map([[shapeKey([[0, 0]]), [[0, 0]]]]);
+
+      for (let size = 1; size < order; size += 1) {
+        const nextShapes = new Map();
+
+        shapes.forEach((shape) => {
+          const occupied = new Set(shape.map(([q, r]) => `${q},${r}`));
+
+          shape.forEach(([q, r]) => {
+            NEIGHBORS.forEach(([dq, dr]) => {
+              const neighbor = [q + dq, r + dr];
+
+              if (occupied.has(`${neighbor[0]},${neighbor[1]}`)) {
+                return;
+              }
+
+              const canonicalShape = canonical([...shape, neighbor]);
+              nextShapes.set(shapeKey(canonicalShape), canonicalShape);
+            });
+          });
+        });
+
+        shapes = nextShapes;
+      }
+
+      return [...shapes.values()];
+    }
+
+    function canonical(cells) {
+      return transformsOf(cells).sort((a, b) => shapeKey(a).localeCompare(shapeKey(b)))[0];
+    }
+
+    function transformsOf(cells) {
+      const seen = new Map();
+
+      [false, true].forEach((isReflected) => {
+        const base = isReflected ? reflect(cells) : cells;
+
+        for (let turns = 0; turns < 6; turns += 1) {
+          const orientation = normalize(base.map((cell) => rotate(cell, turns)));
+          seen.set(shapeKey(orientation), orientation);
+        }
+      });
+
+      return [...seen.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, shape]) => shape);
+    }
+
+    function rotate(cell, turns) {
+      let [q, r] = cell;
+      let x = q;
+      let y = -q - r;
+      let z = r;
+
+      for (let turn = 0; turn < turns % 6; turn += 1) {
+        [x, y, z] = [-z, -x, -y];
+      }
+
+      return [x, z];
+    }
+
+    function reflect(cells) {
+      return cells.map(([q, r]) => [r, q]);
+    }
+
+    function normalize(cells) {
+      const minQ = Math.min(...cells.map(([q]) => q));
+      const minR = Math.min(...cells.map(([, r]) => r));
+
+      return cells
+        .map(([q, r]) => [q - minQ, r - minR])
+        .sort(([aq, ar], [bq, br]) => aq - bq || ar - br);
+    }
+
+    function shapeKey(cells) {
+      return normalize(cells).map(([q, r]) => `${q},${r}`).join(";");
+    }
+
+    function axialToPixel(q, r, size) {
+      return [
+        size * Math.sqrt(3) * (q + r / 2),
+        size * 1.5 * r,
+      ];
+    }
+
+    function hexPoints(size) {
+      const points = [];
+
+      for (let i = 0; i < 6; i += 1) {
+        const angle = Math.PI / 180 * (60 * i - 30);
+        points.push([Math.cos(angle) * size, Math.sin(angle) * size]);
+      }
+
+      return points;
+    }
+
+    function boundsFor(shape, size) {
+      const points = shape.flatMap(([q, r]) => {
+        const [x, y] = axialToPixel(q, r, size);
+        return hexPoints(size).map(([px, py]) => [x + px, y + py]);
+      });
+      const xs = points.map(([x]) => x);
+      const ys = points.map(([, y]) => y);
+      const pad = size * 0.7;
+      const minX = Math.min(...xs) - pad;
+      const minY = Math.min(...ys) - pad;
+      const maxX = Math.max(...xs) + pad;
+      const maxY = Math.max(...ys) + pad;
+
+      return [minX, minY, maxX - minX, maxY - minY];
+    }
+  </script>
+</body>
+</html>
