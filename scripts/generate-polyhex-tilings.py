@@ -20,6 +20,13 @@ NEIGHBORS = (
 ORDER = 4
 DEFAULT_RADIUS = 2
 DEFAULT_HOLES = 3
+POLYHEX_NAMES = {
+    1: "monohex",
+    2: "dihex",
+    3: "trihex",
+    4: "tetrahex",
+    5: "penthex",
+}
 
 
 Cell = tuple[int, int]
@@ -29,7 +36,13 @@ Placement = tuple[int, ...]
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate fixed tetrahex descriptions and radius-board tilings."
+        description="Generate fixed polyhex descriptions and radius-board tilings."
+    )
+    parser.add_argument(
+        "--order",
+        type=int,
+        default=ORDER,
+        help="Number of cells in each polyhex. Default is 4 for tetrahexes.",
     )
     parser.add_argument(
         "--radius",
@@ -43,62 +56,68 @@ def main() -> None:
         default=DEFAULT_HOLES,
         help="Number of board cells left empty.",
     )
+    parser.add_argument(
+        "--shapes-only",
+        action="store_true",
+        help="Only write the fixed polyhex shape descriptions.",
+    )
     args = parser.parse_args()
 
     DATA_DIR.mkdir(exist_ok=True)
-    fixed_shapes = fixed_polyhexes(ORDER)
+    fixed_shapes = fixed_polyhexes(args.order)
 
-    write_shapes(fixed_shapes)
-    write_tilings(args.radius, args.holes, fixed_shapes)
+    write_shapes(args.order, fixed_shapes)
+    if not args.shapes_only:
+        write_tilings(args.order, args.radius, args.holes, fixed_shapes)
 
 
-def write_shapes(shapes: list[Shape]) -> None:
-    output_path = DATA_DIR / "tetrahex-shapes.txt"
+def write_shapes(order: int, shapes: list[Shape]) -> None:
+    output_path = DATA_DIR / f"{polyhex_name(order)}-shapes.txt"
 
     with output_path.open("w", encoding="utf-8") as output:
         for shape in shapes:
             output.write(f"{shape_string(shape)}\n")
 
-    print(f"Wrote {len(shapes)} fixed tetrahexes -> {output_path.relative_to(ROOT_DIR)}")
+    print(f"Wrote {len(shapes)} fixed {polyhex_name(order)}es -> {output_path.relative_to(ROOT_DIR)}")
 
 
-def write_tilings(radius: int, holes: int, shapes: list[Shape]) -> None:
+def write_tilings(order: int, radius: int, holes: int, shapes: list[Shape]) -> None:
     cells = radius_cells(radius)
     cell_count = len(cells)
     covered_cells = cell_count - holes
 
-    if covered_cells % ORDER != 0:
+    if covered_cells % order != 0:
         raise ValueError(
             f"Radius {radius} with {holes} holes leaves {covered_cells} cells, "
-            f"which cannot be tiled by tetrahexes"
+            f"which cannot be tiled by {polyhex_name(order)}es"
         )
 
-    piece_count = covered_cells // ORDER
+    piece_count = covered_cells // order
 
     if piece_count > len(LABELS):
         raise ValueError("Not enough labels for this board")
 
-    output_path = DATA_DIR / f"tetrahex-tilings-radius-{radius}-holes-{holes}.txt"
+    output_path = DATA_DIR / f"{polyhex_name(order)}-tilings-radius-{radius}-holes-{holes}.txt"
     count = 0
 
     print(
-        f"Generating radius {radius}, {holes} holes with {len(shapes)} fixed tetrahexes "
+        f"Generating radius {radius}, {holes} holes with {len(shapes)} fixed {polyhex_name(order)}es "
         f"-> {output_path.relative_to(ROOT_DIR)}"
     )
 
     with output_path.open("w", encoding="utf-8") as output:
-        for tiling in generate_tilings(cells, holes, shapes):
+        for tiling in generate_tilings(order, cells, holes, shapes):
             output.write(f"{tiling}\n")
             count += 1
 
     print(f"Wrote {count} tilings")
 
 
-def generate_tilings(cells: list[Cell], holes: int, shapes: list[Shape]):
+def generate_tilings(order: int, cells: list[Cell], holes: int, shapes: list[Shape]):
     index_by_cell = {cell: index for index, cell in enumerate(cells)}
     placements_by_cell = build_placements_by_cell(cells, index_by_cell, shapes)
     board = [-1] * len(cells)
-    piece_count = (len(cells) - holes) // ORDER
+    piece_count = (len(cells) - holes) // order
 
     def search(next_label: int, holes_used: int):
         first_empty = find_first_empty(board)
@@ -110,7 +129,7 @@ def generate_tilings(cells: list[Cell], holes: int, shapes: list[Shape]):
 
         remaining_empty = board.count(-1)
         remaining_holes = holes - holes_used
-        remaining_piece_cells = (piece_count - next_label) * ORDER
+        remaining_piece_cells = (piece_count - next_label) * order
 
         if remaining_holes < 0 or remaining_piece_cells < 0:
             return
@@ -168,6 +187,10 @@ def build_placements_by_cell(
 
 def fixed_polyhexes(order: int) -> list[Shape]:
     return sorted({orientation for shape in free_polyhexes(order) for orientation in transforms_of(shape)})
+
+
+def polyhex_name(order: int) -> str:
+    return POLYHEX_NAMES.get(order, f"{order}-hex")
 
 
 def free_polyhexes(order: int) -> set[Shape]:
