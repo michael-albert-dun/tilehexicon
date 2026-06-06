@@ -30,7 +30,7 @@
     }
 
     main {
-      width: min(720px, calc(100% - 32px));
+      width: min(1280px, calc(100% - 32px));
       margin: 0 auto;
       padding: 48px 0;
     }
@@ -52,10 +52,92 @@
 
     p {
       max-width: 58ch;
-      margin: 0;
+      margin: 0 0 1rem;
       color: var(--muted);
       font-size: 1.05rem;
       line-height: 1.5;
+    }
+
+    .order-section {
+      margin-top: 28px;
+    }
+
+    .order-section h2 {
+      margin: 0 0 6px;
+      font-size: 1.35rem;
+      letter-spacing: 0;
+    }
+
+    .section-note {
+      margin-bottom: 14px;
+      font-size: 0.96rem;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+      gap: 14px;
+    }
+
+    .shape-card {
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 10px 24px rgba(45, 62, 76, 0.07);
+    }
+
+    .shape-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .shape-order {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #8b98a2;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1.08;
+      overflow: visible;
+    }
+
+    .hex {
+      fill: #8acbf0;
+      stroke: #6aa6c1;
+      stroke-width: 3.8;
+      paint-order: stroke fill;
+      filter: drop-shadow(0 6px 7px rgba(38, 49, 58, 0.12));
+    }
+
+    .inner {
+      fill: none;
+      stroke: #b8e8ff;
+      stroke-width: 2.7;
+      opacity: 0.95;
+      pointer-events: none;
+    }
+
+    .letter {
+      fill: var(--ink);
+      font-size: 25px;
+      font-weight: 850;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .loading-note {
+      color: var(--muted);
+      font-size: 0.95rem;
     }
   </style>
 </head>
@@ -67,7 +149,7 @@
       <p>
         Unlike English text, or even the squares in a Tilexicon puzzle, it's hard to find a natural reading order for
         the hexes in a polyhex. The decision made in Tilehexicon is to generate tiles in orders that seem to read fairly
-        naturally, but to allow the solver to choose any set of tiles that form a valid word. As a result, their may be
+        naturally, but to allow the solver to choose any set of tiles that form a valid word. As a result, there may be
         alternate solutions to a given puzzle that use the different words and/or different tiles. If you find such a
         solution, well done.
       </p>
@@ -83,8 +165,212 @@
         Below, please find illustrations of the quote-unquote "natural" reading orders for the various polyhexes used in
         Tilehexicon.
       </p>
+
+      <section class="order-section" aria-labelledby="tetra-heading">
+        <h2 id="tetra-heading">Four-hex tiles</h2>
+        <p class="section-note">
+          Tetrahexes are shown with <strong>WORD</strong> inserted in generation order. Note that some hexes have more
+          than one valid reading order, and may be generated with either order in the game. In that case, all orders are
+          shown.
+        </p>
+        <div id="tetra-gallery" class="gallery">
+          <p class="loading-note">Loading tetrahexes...</p>
+        </div>
+      </section>
+
+      <section class="order-section" aria-labelledby="pent-heading">
+        <h2 id="pent-heading">Five-hex tiles</h2>
+        <p class="section-note">
+          Penthexes are shown with <strong>WORDS</strong> inserted in generation order. Shapes with more than one
+          allowed order appear more than once.
+        </p>
+        <div id="pent-gallery" class="gallery">
+          <p class="loading-note">Loading penthexes...</p>
+        </div>
+      </section>
     </article>
   </main>
+
+  <script>
+    const HEX_SIZE = 24;
+    const OUTER_POINTS = hexPoints(HEX_SIZE).map(([x, y]) => `${x},${y}`).join(" ");
+    const INNER_POINTS = hexPoints(HEX_SIZE * 0.72).map(([x, y]) => `${x},${y}`).join(" ");
+
+    renderOrders();
+
+    async function renderOrders() {
+      const [
+        tetraShapesText,
+        tetraOrders,
+        pentShapesText,
+        pentOrders,
+      ] = await Promise.all([
+        fetchText("data/tetrahex-shapes.txt"),
+        fetchJson("data/tetrahex-generation-orders.json"),
+        fetchText("data/penthex-shapes.txt"),
+        fetchJson("data/penthex-generation-orders.json"),
+      ]);
+
+      renderTetrahexes(tetraShapesText, tetraOrders);
+      renderPenthexes(pentShapesText, pentOrders);
+    }
+
+    async function fetchText(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Could not load ${url}`);
+      }
+      return response.text();
+    }
+
+    async function fetchJson(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Could not load ${url}`);
+      }
+      return response.json();
+    }
+
+    function renderTetrahexes(shapesText, ordersByCoords) {
+      const shapes = shapesText.trim().split(/\n+/).map(parseShape);
+      const gallery = document.querySelector("#tetra-gallery");
+      let cardCount = 0;
+
+      gallery.textContent = "";
+      shapes.forEach((shape, index) => {
+        tetraOrdersForShape(shape, ordersByCoords).forEach((order) => {
+          gallery.append(makeCard(shape, index + 1, order, "WORD", "Tetrahex"));
+          cardCount += 1;
+        });
+      });
+
+      document.querySelector("#tetra-heading").textContent = `Four-hex tiles (${cardCount})`;
+    }
+
+    function renderPenthexes(shapesText, orderTable) {
+      const shapes = shapesText.trim().split(/\n+/).map(parseShape);
+      const gallery = document.querySelector("#pent-gallery");
+      let cardCount = 0;
+
+      gallery.textContent = "";
+      shapes.forEach((shape, index) => {
+        const shapeOrders = orderTable[String(index + 1)] || [fallbackOrder(shape)];
+
+        shapeOrders.forEach((order) => {
+          gallery.append(makeCard(shape, index + 1, order, "WORDS", "Penthex"));
+          cardCount += 1;
+        });
+      });
+
+      document.querySelector("#pent-heading").textContent = `Five-hex tiles (${cardCount})`;
+    }
+
+    function tetraOrdersForShape(shape, ordersByCoords) {
+      const key = shape.map(([q, r]) => `${q},${r}`).join(";");
+      const coordOrders = ordersByCoords[key] || [];
+      const coordStrings = shape.map(([q, r]) => `${q},${r}`);
+
+      if (coordOrders.length === 0) {
+        return [fallbackOrder(shape)];
+      }
+
+      return coordOrders.map((coordOrder) => coordOrder
+        .map((coord) => String(coordStrings.indexOf(coord) + 1))
+        .join(""));
+    }
+
+    function fallbackOrder(shape) {
+      return shape
+        .map((cell, index) => ({ cell, index }))
+        .sort((a, b) => a.cell[0] - b.cell[0] || a.cell[1] - b.cell[1])
+        .map(({ index }) => String(index + 1))
+        .join("");
+    }
+
+    function makeCard(shape, shapeNumber, order, word, kind) {
+      const card = document.createElement("article");
+      const title = document.createElement("div");
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const lettersByCell = lettersForOrder(order, word);
+
+      card.className = "shape-card";
+      title.className = "shape-title";
+      title.innerHTML = `<span>${kind} ${shapeNumber}</span><span class="shape-order">${order}</span>`;
+      svg.setAttribute("viewBox", boundsFor(shape, HEX_SIZE).join(" "));
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", `${kind} ${shapeNumber}, order ${order}`);
+
+      shape.forEach(([q, r], cellIndex) => {
+        const [x, y] = axialToPixel(q, r, HEX_SIZE);
+        const outer = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        const inner = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        const letter = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+        outer.setAttribute("class", "hex");
+        outer.setAttribute("points", OUTER_POINTS);
+        outer.setAttribute("transform", `translate(${x} ${y})`);
+        inner.setAttribute("class", "inner");
+        inner.setAttribute("points", INNER_POINTS);
+        inner.setAttribute("transform", `translate(${x} ${y})`);
+        letter.setAttribute("class", "letter");
+        letter.setAttribute("x", x);
+        letter.setAttribute("y", y + 1);
+        letter.textContent = lettersByCell[cellIndex] || "";
+        svg.append(outer, inner, letter);
+      });
+
+      card.append(title, svg);
+      return card;
+    }
+
+    function lettersForOrder(order, word) {
+      const letters = [];
+
+      [...order].forEach((rawIndex, letterIndex) => {
+        letters[Number(rawIndex) - 1] = word[letterIndex];
+      });
+
+      return letters;
+    }
+
+    function parseShape(line) {
+      return line.split(";").map((part) => part.split(",").map(Number));
+    }
+
+    function axialToPixel(q, r, size) {
+      return [
+        size * Math.sqrt(3) * (q + r / 2),
+        size * 1.5 * r,
+      ];
+    }
+
+    function hexPoints(size) {
+      const points = [];
+
+      for (let i = 0; i < 6; i += 1) {
+        const angle = Math.PI / 180 * (60 * i - 30);
+        points.push([Math.cos(angle) * size, Math.sin(angle) * size]);
+      }
+
+      return points;
+    }
+
+    function boundsFor(shape, size) {
+      const points = shape.flatMap(([q, r]) => {
+        const [x, y] = axialToPixel(q, r, size);
+        return hexPoints(size).map(([px, py]) => [x + px, y + py]);
+      });
+      const xs = points.map(([x]) => x);
+      const ys = points.map(([, y]) => y);
+      const pad = size * 0.7;
+      const minX = Math.min(...xs) - pad;
+      const minY = Math.min(...ys) - pad;
+      const maxX = Math.max(...xs) + pad;
+      const maxY = Math.max(...ys) + pad;
+
+      return [minX, minY, maxX - minX, maxY - minY];
+    }
+  </script>
 </body>
 
 </html>
