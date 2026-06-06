@@ -67,6 +67,8 @@ const elements = {
   board: document.querySelector("#board"),
   status: document.querySelector("#status"),
   selectionLines: document.querySelector("#selection-lines"),
+  infoButton: document.querySelector("#info-button"),
+  infoPanel: document.querySelector("#info-panel"),
   newButton: document.querySelector("#new-button"),
   restartButton: document.querySelector("#restart-button")
 };
@@ -76,7 +78,9 @@ init();
 async function init() {
   elements.newButton.addEventListener("click", newPuzzle);
   elements.restartButton.addEventListener("click", restartPuzzle);
+  elements.infoButton.addEventListener("click", toggleInfoPanel);
   document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("click", closeInfoFromOutside);
   document.addEventListener("pointermove", handleDragMove);
   document.addEventListener("pointerup", endDragSelection);
   document.addEventListener("pointercancel", endDragSelection);
@@ -152,6 +156,7 @@ function parseTilingText(text) {
 }
 
 function newPuzzle(options = {}) {
+  closeInfoPanel();
   const boardCells = radiusCells(BOARD_RADIUS);
   const puzzle = options.puzzle || null;
 
@@ -218,6 +223,7 @@ function makeEmptyCells(boardCells) {
 }
 
 function restartPuzzle() {
+  closeInfoPanel();
   resetProgress();
   render();
 }
@@ -237,6 +243,30 @@ function cancelPendingCommit() {
   if (state.pendingCommitTimer !== null) {
     window.clearTimeout(state.pendingCommitTimer);
     state.pendingCommitTimer = null;
+  }
+}
+
+function toggleInfoPanel(event) {
+  event.stopPropagation();
+
+  const isOpen = !elements.infoPanel.hidden;
+
+  elements.infoPanel.hidden = isOpen;
+  elements.infoButton.setAttribute("aria-expanded", String(!isOpen));
+}
+
+function closeInfoPanel() {
+  elements.infoPanel.hidden = true;
+  elements.infoButton.setAttribute("aria-expanded", "false");
+}
+
+function closeInfoFromOutside(event) {
+  if (
+    !elements.infoPanel.hidden &&
+    !elements.infoPanel.contains(event.target) &&
+    !elements.infoButton.contains(event.target)
+  ) {
+    closeInfoPanel();
   }
 }
 
@@ -1029,6 +1059,12 @@ function isConnected(cells) {
 }
 
 function handleKeyDown(event) {
+  if (event.key === "Escape" && !elements.infoPanel.hidden) {
+    event.preventDefault();
+    closeInfoPanel();
+    return;
+  }
+
   if (event.key.toLowerCase() === "q") {
     state.qSequence = `${state.qSequence}q`.slice(-3);
 
