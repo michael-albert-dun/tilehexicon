@@ -41,6 +41,7 @@ body {
 
 button {
   font: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app {
@@ -82,6 +83,20 @@ button {
 .corner-button:hover {
   background: var(--button-hover);
   color: var(--ink);
+}
+
+.corner-button:focus,
+.corner-button:active,
+.info-button:focus,
+.info-button:active {
+  outline: none;
+}
+
+.corner-button:focus-visible,
+.info-button:focus-visible {
+  box-shadow:
+    0 0 0 3px rgba(113, 128, 138, 0.18),
+    0 6px 14px rgba(45, 62, 76, 0.06);
 }
 
 .restart-button {
