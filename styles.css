@@ -143,6 +143,18 @@ h1 {
     transform 140ms ease;
 }
 
+.hex-cell.is-hole {
+  cursor: default;
+  filter: none;
+  pointer-events: none;
+}
+
+.hex-cell.is-hole .hex-face {
+  fill: transparent;
+  stroke: var(--tile-border);
+  stroke-width: 4;
+}
+
 .hex-highlight {
   fill: transparent;
   stroke: rgba(255, 255, 255, 0.42);
@@ -151,7 +163,7 @@ h1 {
   pointer-events: none;
 }
 
-.hex-cell:hover .hex-face {
+.hex-cell:not(.is-hole):hover .hex-face {
   transform: translateY(-2px);
 }
 

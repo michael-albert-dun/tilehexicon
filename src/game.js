@@ -53,6 +53,7 @@ const state = {
   pendingCommitTimer: null,
   activeMoveIndex: null,
   dragSelection: null,
+  suppressNextClick: false,
   allowedWords: new Set(),
   commonWordsByLength: new Map(),
   tilingGroups: [],
@@ -229,6 +230,7 @@ function resetProgress() {
   state.invalidSelection = false;
   state.activeMoveIndex = null;
   state.dragSelection = null;
+  state.suppressNextClick = false;
 }
 
 function cancelPendingCommit() {
@@ -404,6 +406,29 @@ function renderBoard() {
   state.cells.forEach((cell) => {
     elements.board.append(makeCellGroup(cell));
   });
+
+  renderHoles();
+}
+
+function renderHoles() {
+  const occupiedIndexes = new Set(state.cells.map((cell) => cell.index));
+
+  makeEmptyCells(radiusCells(BOARD_RADIUS)).forEach((cell) => {
+    if (!occupiedIndexes.has(cell.index)) {
+      elements.board.append(makeHoleGroup(cell));
+    }
+  });
+}
+
+function makeHoleGroup(cell) {
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  const face = makeHex(cell, "hex-face", HEX_SIZE - 3);
+
+  group.classList.add("hex-cell", "is-hole");
+  group.setAttribute("aria-hidden", "true");
+  group.append(face);
+
+  return group;
 }
 
 function makeCellGroup(cell) {
@@ -543,8 +568,8 @@ function renderStatus() {
 }
 
 function selectCell(cell, event) {
-  if (event && state.dragSelection) {
-    state.dragSelection = null;
+  if (event && state.suppressNextClick) {
+    state.suppressNextClick = false;
     return;
   }
 
@@ -584,8 +609,7 @@ function startDragSelection(cell, event) {
 
   state.dragSelection = {
     pointerId: event.pointerId,
-    moved: false,
-    handledClick: true
+    moved: false
   };
 
   if (state.locked.has(cell.id)) {
@@ -638,7 +662,11 @@ function endDragSelection(event) {
     return;
   }
 
-  state.dragSelection.handledClick = true;
+  state.dragSelection = null;
+  state.suppressNextClick = true;
+  window.setTimeout(() => {
+    state.suppressNextClick = false;
+  }, 250);
 }
 
 function addCellToSelection(cell) {
