@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TileHexicon generation order review</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #edf2f5;
+      --ink: #29343d;
+      --muted: #71808a;
+      --tile: #8ccbed;
+      --tile-border: #6aa5bf;
+      --surface: rgba(251, 253, 255, 0.82);
+      --surface-line: #d7e0e6;
+      --order: #efc46b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 28px;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 34rem),
+        var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 5vw, 4rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .note {
+      max-width: 760px;
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.45;
+    }
+
+    .shapes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+    }
+
+    .shape-card {
+      border: 1px solid var(--surface-line);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: 0 12px 36px rgba(45, 62, 76, 0.08);
+      overflow: hidden;
+    }
+
+    .shape-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px 0;
+    }
+
+    .shape-number {
+      font-size: 1.05rem;
+      font-weight: 780;
+    }
+
+    .shape-key {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      text-align: right;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 190px;
+    }
+
+    .hex-face {
+      fill: var(--tile);
+      stroke: var(--tile-border);
+      stroke-width: 4;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 6px 14px rgba(45, 62, 76, 0.12));
+    }
+
+    .hex-highlight {
+      fill: transparent;
+      stroke: rgba(255, 255, 255, 0.45);
+      stroke-width: 3;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    .cell-index {
+      fill: var(--ink);
+      font-size: 28px;
+      font-weight: 760;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    .orders {
+      min-height: 42px;
+      padding: 0 14px 14px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.35;
+    }
+
+    .order-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin: 6px 6px 0 0;
+      padding: 4px 8px;
+      border: 1px solid color-mix(in srgb, var(--order) 65%, #29343d);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--order) 34%, white);
+      color: var(--ink);
+      font-weight: 720;
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>Generation Orders</h1>
+    <p class="note">
+      Each card shows one fixed tetrahex orientation from <code>tetrahex-shapes.txt</code>.
+      The numbers are the cell indices to use when describing generation orders. Unlisted shapes
+      use the default <code>1-2-3-4</code>. For example, <code>18: 3-1-2-4</code>
+      means shape 18 should receive letters in cells 3, 1, 2, then 4.
+    </p>
+    <section id="shapes" class="shapes" aria-label="Tetrahex generation order review"></section>
+  </main>
+
+  <script>
+    const HEX_SIZE = 34;
+    const SHAPES = [
+      "0,0;0,1;0,2;0,3",
+      "0,0;0,1;0,2;1,0",
+      "0,0;0,1;0,2;1,1",
+      "0,0;0,1;0,2;1,2",
+      "0,0;0,1;1,0;1,1",
+      "0,0;0,1;1,0;2,0",
+      "0,0;0,1;1,1;1,2",
+      "0,0;0,1;1,1;2,0",
+      "0,0;0,1;1,1;2,1",
+      "0,0;0,2;1,0;1,1",
+      "0,0;1,0;1,1;1,2",
+      "0,0;1,0;1,1;2,0",
+      "0,0;1,0;1,1;2,1",
+      "0,0;1,0;2,0;2,1",
+      "0,0;1,0;2,0;3,0",
+      "0,1;0,2;0,3;1,0",
+      "0,1;0,2;1,0;1,1",
+      "0,1;0,2;1,0;1,2",
+      "0,1;0,2;1,0;2,0",
+      "0,1;0,2;1,1;2,0",
+      "0,1;1,0;1,1;1,2",
+      "0,1;1,0;1,1;2,0",
+      "0,1;1,0;1,1;2,1",
+      "0,1;1,0;2,0;2,1",
+      "0,1;1,0;2,0;3,0",
+      "0,1;1,1;1,2;2,0",
+      "0,1;1,1;2,0;2,1",
+      "0,1;1,1;2,0;3,0",
+      "0,1;1,1;2,1;3,0",
+      "0,2;0,3;1,0;1,1",
+      "0,2;0,3;1,1;2,0",
+      "0,2;1,0;1,1;1,2",
+      "0,2;1,0;1,1;2,0",
+      "0,2;1,0;1,1;2,1",
+      "0,2;1,1;1,2;2,0",
+      "0,2;1,1;2,0;2,1",
+      "0,2;1,1;2,0;3,0",
+      "0,2;1,1;2,1;3,0",
+      "0,2;1,2;2,0;2,1",
+      "0,2;1,2;2,1;3,0",
+      "0,3;1,0;1,1;1,2",
+      "0,3;1,1;1,2;2,0",
+      "0,3;1,2;2,0;2,1",
+      "0,3;1,2;2,1;3,0"
+    ];
+    const EXPLICIT_ORDERS = {
+      "0,0;0,1;0,2;1,1": [
+        ["0,0", "0,1", "0,2", "1,1"],
+        ["0,0", "0,1", "1,1", "0,2"]
+      ],
+      "0,0;0,1;1,0;1,1": [
+        ["0,0", "0,1", "1,0", "1,1"],
+        ["0,0", "1,0", "0,1", "1,1"]
+      ],
+      "0,0;0,2;1,0;1,1": [
+        ["0,0", "1,0", "1,1", "0,2"]
+      ],
+      "0,0;1,0;1,1;2,0": [
+        ["0,0", "1,0", "1,1", "2,0"],
+        ["0,0", "1,0", "2,0", "1,1"]
+      ],
+      "0,1;0,2;0,3;1,0": [
+        ["1,0", "0,1", "0,2", "0,3"]
+      ],
+      "0,1;0,2;1,0;1,1": [
+        ["1,0", "0,1", "1,1", "0,2"]
+      ],
+      "0,1;0,2;1,0;1,2": [
+        ["1,0", "0,1", "0,2", "1,2"]
+      ],
+      "0,1;0,2;1,0;2,0": [
+        ["0,2", "0,1", "1,0", "2,0"]
+      ],
+      "0,1;1,1;1,2;2,0": [
+        ["0,1", "1,1", "2,0", "1,2"]
+      ],
+      "0,2;0,3;1,0;1,1": [
+        ["1,0", "1,1", "0,2", "0,3"]
+      ],
+      "0,2;0,3;1,1;2,0": [
+        ["2,0", "1,1", "0,2", "0,3"]
+      ],
+      "0,2;1,0;1,1;1,2": [
+        ["1,0", "1,1", "0,2", "1,2"]
+      ],
+      "0,2;1,0;1,1;2,0": [
+        ["1,0", "2,0", "1,1", "0,2"]
+      ],
+      "0,2;1,0;1,1;2,1": [
+        ["1,0", "0,2", "1,1", "2,1"]
+      ],
+      "0,2;1,1;1,2;2,0": [
+        ["2,0", "1,1", "0,2", "1,2"]
+      ],
+      "0,2;1,2;2,0;2,1": [
+        ["0,2", "1,2", "2,1", "2,0"]
+      ],
+      "0,3;1,0;1,1;1,2": [
+        ["1,0", "1,1", "1,2", "0,3"]
+      ],
+      "0,3;1,1;1,2;2,0": [
+        ["2,0", "1,1", "1,2", "0,3"]
+      ],
+      "0,3;1,2;2,0;2,1": [
+        ["2,0", "2,1", "1,2", "0,3"]
+      ]
+    };
+
+    const shapesElement = document.querySelector("#shapes");
+
+    SHAPES.forEach((shape, index) => {
+      shapesElement.append(makeShapeCard(shape, index + 1));
+    });
+
+    function makeShapeCard(shape, displayIndex) {
+      const card = document.createElement("article");
+      const header = document.createElement("header");
+      const number = document.createElement("div");
+      const key = document.createElement("div");
+      const orders = document.createElement("div");
+      const cells = parseShape(shape);
+
+      card.className = "shape-card";
+      header.className = "shape-header";
+      number.className = "shape-number";
+      number.textContent = `Shape ${displayIndex}`;
+      key.className = "shape-key";
+      key.textContent = shape;
+      orders.className = "orders";
+      orders.append(...makeOrderNodes(shape, cells));
+      header.append(number, key);
+      card.append(header, makeShapeSvg(cells), orders);
+
+      return card;
+    }
+
+    function makeOrderNodes(shape, cells) {
+      const orders = EXPLICIT_ORDERS[shape] || [];
+
+      if (orders.length === 0) {
+        return [makeOrderPill("1-2-3-4", true)];
+      }
+
+      return orders.map((order) => {
+        const pill = document.createElement("span");
+
+        pill.className = "order-pill";
+        pill.textContent = order
+          .map((offset) => cells.findIndex((cell) => cell.key === offset) + 1)
+          .join("-");
+
+        return pill;
+      });
+    }
+
+    function makeOrderPill(text, isDefault = false) {
+      const pill = document.createElement("span");
+
+      pill.className = "order-pill";
+      pill.textContent = isDefault ? `${text} default` : text;
+      return pill;
+    }
+
+    function makeShapeSvg(cells) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const points = cells.map((cell) => axialToPixel(cell));
+      const minX = Math.min(...points.map((point) => point.x));
+      const maxX = Math.max(...points.map((point) => point.x));
+      const minY = Math.min(...points.map((point) => point.y));
+      const maxY = Math.max(...points.map((point) => point.y));
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      svg.setAttribute("viewBox", "0 0 260 190");
+      cells.forEach((cell, index) => {
+        const point = axialToPixel(cell);
+        const x = 130 + point.x - centerX;
+        const y = 95 + point.y - centerY;
+
+        svg.append(makeHex(x, y, HEX_SIZE, "hex-face"));
+        svg.append(makeHex(x, y, HEX_SIZE - 10, "hex-highlight"));
+        svg.append(makeLabel(x, y + 1, index + 1));
+      });
+
+      return svg;
+    }
+
+    function parseShape(shape) {
+      return shape.split(";").map((entry) => {
+        const [q, r] = entry.split(",").map(Number);
+
+        return { q, r, key: entry };
+      });
+    }
+
+    function axialToPixel({ q, r }) {
+      return {
+        x: HEX_SIZE * Math.sqrt(3) * (q + r / 2),
+        y: HEX_SIZE * 1.5 * r
+      };
+    }
+
+    function makeHex(x, y, radius, className) {
+      const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+
+      polygon.setAttribute("class", className);
+      polygon.setAttribute("points", hexPoints(x, y, radius));
+      return polygon;
+    }
+
+    function hexPoints(x, y, radius) {
+      return Array.from({ length: 6 }, (_, index) => {
+        const angle = Math.PI / 180 * (60 * index - 30);
+
+        return `${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`;
+      }).join(" ");
+    }
+
+    function makeLabel(x, y, index) {
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+      label.classList.add("cell-index");
+      label.setAttribute("x", x);
+      label.setAttribute("y", y);
+      label.textContent = index;
+      return label;
+    }
+  </script>
+</body>
+
+</html>

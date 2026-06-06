@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TileHexicon</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/game.js" defer></script>
+</head>
+
+<body>
+  <main class="app">
+    <section class="play-area" aria-labelledby="title">
+      <button id="restart-button" class="corner-button restart-button" type="button" title="Restart" aria-label="Restart puzzle">R</button>
+      <button id="new-button" class="corner-button new-button" type="button" title="New" aria-label="New puzzle">N</button>
+
+      <header class="title-block">
+        <h1 id="title">TileHexicon</h1>
+        <p id="status" class="status" aria-live="polite">Loading...</p>
+      </header>
+
+      <svg id="board" class="board" viewBox="0 0 620 500" role="grid" aria-label="TileHexicon board"></svg>
+
+      <section class="selection-panel" aria-label="Completed words">
+        <div id="selection-lines" class="selection-lines"></div>
+      </section>
+    </section>
+  </main>
+</body>
+
+</html>
