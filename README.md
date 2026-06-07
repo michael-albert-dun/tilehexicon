@@ -1,49 +1,164 @@
 # TileHexicon
 
-A version of the Tilexicon game based on hexes rather than squares.
+TileHexicon is a hex-grid word puzzle in the Tilexicon family. The board is a
+radius-2 disc of 19 hexes. Four words are hidden in the board; each word occupies
+one connected polyhex piece made from either four cells (a tetrahex) or five
+cells (a penthex). Any remaining cells are holes.
 
-As in Tilexicon we will be aiming to build tilings of (initially) four tetrahexes. Unlike tilexicon I think the board shape may vary between attempts.
+## Gameplay
 
-## Data Generation
+The aim is to cover the board with four valid words.
 
-Tetrahex data is generated with:
+- Select four or five edge-connected hexes to form a word.
+- A four-letter selection is accepted after a short pause, or immediately with
+  Enter.
+- A five-letter selection is accepted immediately.
+- Completed words are coloured and listed below the board.
+- To remove a completed word, tap or click any tile in that word, then tap the
+  `x` marker that appears on the word's first tile.
+- Holes are pale inactive hexes and cannot be selected.
 
-```sh
-scripts/generate-polyhex-tilings.py
-```
+Puzzle generation uses conservative, shape-specific reading orders so that the
+generated words look natural on the board. Solving is deliberately more liberal:
+if a connected four- or five-cell shape contains the letters of an accepted word,
+the selection can be accepted as an anagram. This means a puzzle may have
+alternate solutions that were not the original generated grouping.
 
-The generator writes:
+The current word lists are intentionally fairly common:
 
-- `data/tetrahex-shapes.txt`: all fixed tetrahex orientations, not just symmetry representatives. Each line is a normalized axial-coordinate shape, with cells written as `q,r` and separated by semicolons.
-- `data/tetrahex-generation-orders.json`: the current association table from fixed tetrahex shape key to allowed generation orders.
-- `data/tetrahex-tilings-radius-2-holes-3.txt`: all tilings of a radius-2 hex board with three cells left empty. Each 19-character line follows the board's axial cells sorted by `(r, q)`. A `.` is an empty cell; labels `0` to `3` are the four tetrahex pieces, assigned in first-uncovered-cell order.
-- `data/penthex-generation-orders.json`: the current association table from fixed penthex orientation index to allowed generation order strings.
+- Four-letter words come from `data/common-words.txt`.
+- Five-letter words come from `data/common-words-5.txt`.
 
-The initial radius-2, three-hole data has 44 fixed tetrahex orientations and 9,628 tilings, so uniform random generation can choose directly from the tiling file.
+## UI Elements
 
-See `docs/generation-order-notes.md` for the current working notes on
-tetrahex/penthex generation orders, mixed tiling formats, and rules that may
-need revisiting.
+The game screen has four corner controls:
 
-## First Prototype
+- `+` starts a new random puzzle.
+- `↺` restarts the current puzzle.
+- `i` opens the game information panel.
+- `✎` opens the custom puzzle builder.
 
-The first prototype is a served browser game in `index.html`, `styles.css`, and
-`src/game.js`. It loads the Tilexicon four-letter word lists and the generated
-radius-2 tetrahex tilings from `data/`.
+The custom puzzle builder accepts four words, each four or five letters long,
+with at least one four-letter word. Words outside the current word list are
+highlighted. If the entries are well-formed but merely absent from the list, a
+small `Use highlighted words anyway` action appears; this allows custom puzzles
+with names or other deliberate non-list words. Those extra words are valid only
+for that puzzle.
 
-Run it with:
+Keyboard support:
+
+- Enter commits a ready four-letter selection.
+- Backspace removes the most recent uncommitted selected hex.
+- Escape closes open panels.
+
+The reading-order documentation is available from the information panel and in
+`reading-order.html`.
+
+## Running Locally
+
+Because the app fetches data files, serve it from the project directory:
 
 ```sh
 python3 -m http.server
 ```
 
-Generation uses explicit order lists for fixed tetrahex orientations. Shapes
-not listed in `src/game.js` use the normalized shape order from
-`data/tetrahex-shapes.txt`.
+Then open the served `index.html` in a browser.
 
-Solving is currently more liberal than generation: a selected tetrahex is
-accepted if its four letters anagram to an allowed word. This can create
-plausible alternate groupings that were not part of the generated solution. Two
-future options are to filter generated boards with too many tempting alternate
-valid tetrahex words, or to add a stricter solving mode where a word is accepted
-only if it matches one of that shape orientation's generation orders.
+## URL Format
+
+Puzzle state is stored in the query string:
+
+- `b` is the 19-character board string, in radius-cell order. Letters are board
+  cells and `.` marks holes.
+- `s` is an obfuscated 19-character solution string. It records which cells
+  belong to which piece.
+- `w` is a lightly obfuscated string of the intended words in piece order. This
+  resolves ambiguous generation-order cases and preserves custom “use anyway”
+  words.
+
+The obfuscation is not intended to be secure. It is just enough to stop the
+solution from being immediately readable in the URL.
+
+Older links without `w` still work: the game reconstructs the words from the
+visible board and the encoded piece partition.
+
+## Data Generation
+
+Shape and tiling data are generated by `scripts/generate-polyhex-tilings.py`.
+It can generate fixed polyhex orientations and exact-cover tilings of radius
+boards.
+
+Examples:
+
+```sh
+scripts/generate-polyhex-tilings.py --order 4 --radius 2 --holes 3
+scripts/generate-polyhex-tilings.py --order 5 --shapes-only
+scripts/generate-polyhex-tilings.py --radius 2 --holes 1 --piece-orders 4,4,5,5
+```
+
+The main generated data files are:
+
+- `data/tetrahex-shapes.txt`: 44 fixed tetrahex orientations.
+- `data/penthex-shapes.txt`: 186 fixed penthex orientations.
+- `data/tetrahex-tilings-radius-2-holes-3.txt`: 9,628 tilings with four
+  tetrahexes and three holes.
+- `data/polyhex-tilings-radius-2-orders-4-4-4-5-holes-2.txt`: 13,520 tilings
+  with three tetrahexes, one penthex, and two holes.
+- `data/polyhex-tilings-radius-2-orders-4-4-5-5-holes-1.txt`: 4,695 tilings
+  with two tetrahexes, two penthexes, and one hole.
+- `data/polyhex-tilings-radius-2-orders-4-5-5-5-holes-0.txt`: 364 tilings with
+  one tetrahex and three penthexes.
+
+Random puzzle generation first chooses the number of penthexes uniformly from
+`0, 1, 2, 3`, then chooses uniformly from the corresponding tiling file. This
+keeps the rarer two- and three-penthex layouts visible in play.
+
+Each tiling line is a 19-character board string in radius-cell order. `.` marks
+holes; labels identify the four pieces.
+
+## Generation Orders
+
+Generation orders describe how a word is written into a particular fixed shape
+orientation. These are separated from solving rules:
+
+- Generation uses curated natural readings.
+- Solving accepts anagrams of valid connected pieces.
+
+The order tables are:
+
+- `data/tetrahex-generation-orders.json`
+- `data/penthex-generation-orders.json`
+
+Penthex order data is generated by:
+
+```sh
+scripts/generate-penthex-generation-orders.py
+```
+
+Review helpers:
+
+- `tetrahex-letter-order-review.html`
+- `penthex-letter-order-review.html`
+- `penthex-generation-order-review.html`
+- `mixed-tilings-preview.html`
+
+The working log for generation-order decisions is in
+`docs/generation-order-notes.md`.
+
+## Implementation Notes
+
+The browser game lives in:
+
+- `index.html`
+- `styles.css`
+- `src/game.js`
+
+Rendering is SVG-based. Hex cells are real SVG groups with polygon faces and text
+letters, which makes click/tap/drag selection precise enough for the irregular
+hex layout.
+
+The current prototype intentionally keeps puzzle logic client-side and
+data-driven. Future likely work includes filtering generated boards for
+particularly tempting alternate solutions, refining the common-word lists, and
+deciding whether to offer a stricter solving mode that requires generation-order
+readings rather than anagrams.

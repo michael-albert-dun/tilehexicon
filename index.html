@@ -5,8 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TileHexicon</title>
-  <link rel="stylesheet" href="styles.css?v=20260607f">
-  <script src="src/game.js?v=20260607f" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260607k">
+  <script src="src/game.js?v=20260607k" defer></script>
 </head>
 
 <body>
@@ -14,8 +14,42 @@
     <section class="play-area" aria-labelledby="title">
       <button id="restart-button" class="corner-button restart-button" type="button" title="Restart" aria-label="Restart puzzle">↺</button>
       <button id="new-button" class="corner-button new-button" type="button" title="New" aria-label="New puzzle">+</button>
+      <button id="custom-button" class="info-button custom-button" type="button" title="Build puzzle from words"
+        aria-label="Build puzzle from words" aria-expanded="false" aria-controls="custom-panel">✎</button>
       <button id="info-button" class="info-button" type="button" title="How to play" aria-label="How to play"
         aria-expanded="false" aria-controls="info-panel">i</button>
+
+      <aside id="custom-panel" class="custom-panel" hidden>
+        <h2>Build a puzzle</h2>
+        <p class="custom-panel-note">Insert four- or five-letter words, including at least one four-letter word.</p>
+        <form id="custom-form">
+          <div class="custom-word-grid">
+            <label>
+              <span>Word 1</span>
+              <input class="custom-word-input" type="text" maxlength="5" autocomplete="off" autocapitalize="characters"
+                spellcheck="false">
+            </label>
+            <label>
+              <span>Word 2</span>
+              <input class="custom-word-input" type="text" maxlength="5" autocomplete="off" autocapitalize="characters"
+                spellcheck="false">
+            </label>
+            <label>
+              <span>Word 3</span>
+              <input class="custom-word-input" type="text" maxlength="5" autocomplete="off" autocapitalize="characters"
+                spellcheck="false">
+            </label>
+            <label>
+              <span>Word 4</span>
+              <input class="custom-word-input" type="text" maxlength="5" autocomplete="off" autocapitalize="characters"
+                spellcheck="false">
+            </label>
+          </div>
+          <button class="custom-build-button" type="submit">Build</button>
+          <button id="custom-anyway-button" class="custom-anyway-button" type="button" hidden>Use highlighted words anyway</button>
+          <output id="custom-message" class="custom-message" aria-live="polite"></output>
+        </form>
+      </aside>
 
       <aside id="info-panel" class="info-panel" hidden>
         <h2>How to play</h2>

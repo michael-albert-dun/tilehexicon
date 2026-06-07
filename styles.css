@@ -133,10 +133,16 @@ button {
   color: var(--ink);
 }
 
-.info-panel {
+.custom-button {
+  right: auto;
+  left: 14px;
+  font-size: 1.05rem;
+}
+
+.info-panel,
+.custom-panel {
   position: absolute;
   top: 52px;
-  right: 14px;
   z-index: 6;
   width: min(330px, calc(100% - 28px));
   padding: 14px 16px;
@@ -147,10 +153,26 @@ button {
   box-shadow: 0 18px 42px rgba(45, 62, 76, 0.16);
 }
 
-.info-panel h2 {
+.info-panel {
+  right: 14px;
+}
+
+.custom-panel {
+  left: 14px;
+}
+
+.info-panel h2,
+.custom-panel h2 {
   margin: 0 0 8px;
   font-size: 1rem;
   letter-spacing: 0;
+}
+
+.custom-panel-note {
+  margin: -2px 0 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.32;
 }
 
 .info-panel ul {
@@ -168,6 +190,111 @@ button {
 .info-panel a {
   color: var(--ink);
   font-weight: 720;
+}
+
+.custom-word-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.custom-panel label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 760;
+}
+
+.custom-word-input {
+  width: 100%;
+  border: 1px solid var(--tile-border);
+  border-radius: 10px;
+  background: var(--tile);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  padding: 7px 8px;
+  text-transform: uppercase;
+}
+
+.custom-word-input:focus {
+  outline: none;
+  border-color: rgba(113, 128, 138, 0.65);
+}
+
+.custom-word-input.is-invalid {
+  border-color: var(--invalid-border);
+  background: #fff3f5;
+  box-shadow: 0 0 0 2px rgba(184, 74, 87, 0.1);
+}
+
+.custom-build-button {
+  margin-top: 10px;
+  width: 100%;
+  border: 1px solid var(--tile-border);
+  border-radius: 12px;
+  background: var(--button);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 760;
+  padding: 8px 10px;
+}
+
+.custom-build-button:hover {
+  background: var(--button-hover);
+}
+
+.custom-build-button:focus,
+.custom-build-button:active {
+  outline: none;
+}
+
+.custom-build-button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(113, 128, 138, 0.18);
+}
+
+.custom-anyway-button {
+  display: block;
+  margin: 7px auto 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 720;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.custom-anyway-button[hidden] {
+  display: none;
+}
+
+.custom-anyway-button:hover {
+  color: var(--ink);
+}
+
+.custom-anyway-button:focus,
+.custom-anyway-button:active {
+  outline: none;
+}
+
+.custom-anyway-button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(113, 128, 138, 0.16);
+}
+
+.custom-message {
+  display: block;
+  min-height: 1.2em;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.3;
 }
 
 .title-block {

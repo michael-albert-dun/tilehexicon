@@ -25,7 +25,9 @@ const NEIGHBORS = [
 ];
 const BOARD_PARAM = "b";
 const SOLUTION_PARAM = "s";
+const WORDS_PARAM = "w";
 const SOLUTION_CHARS = "abcde";
+const WORD_CHARS = "abcdefghijklmnopqrstuvwxyz";
 const TILING_GROUPS = [
   {
     penthexes: 0,
@@ -55,6 +57,7 @@ const state = {
   dragSelection: null,
   suppressNextClick: false,
   allowedWords: new Set(),
+  extraWords: new Set(),
   commonWordsByLength: new Map(),
   tilingGroups: [],
   tetrahexGenerationOrders: {},
@@ -69,6 +72,12 @@ const elements = {
   selectionLines: document.querySelector("#selection-lines"),
   infoButton: document.querySelector("#info-button"),
   infoPanel: document.querySelector("#info-panel"),
+  customButton: document.querySelector("#custom-button"),
+  customPanel: document.querySelector("#custom-panel"),
+  customForm: document.querySelector("#custom-form"),
+  customInputs: document.querySelectorAll(".custom-word-input"),
+  customAnywayButton: document.querySelector("#custom-anyway-button"),
+  customMessage: document.querySelector("#custom-message"),
   newButton: document.querySelector("#new-button"),
   restartButton: document.querySelector("#restart-button")
 };
@@ -79,8 +88,12 @@ async function init() {
   elements.newButton.addEventListener("click", newPuzzle);
   elements.restartButton.addEventListener("click", restartPuzzle);
   elements.infoButton.addEventListener("click", toggleInfoPanel);
+  elements.customButton.addEventListener("click", toggleCustomPanel);
+  elements.customForm.addEventListener("submit", buildCustomPuzzleFromForm);
+  elements.customAnywayButton.addEventListener("click", buildCustomPuzzleAnyway);
+  elements.customInputs.forEach((input) => input.addEventListener("input", handleCustomInput));
   document.addEventListener("keydown", handleKeyDown);
-  document.addEventListener("click", closeInfoFromOutside);
+  document.addEventListener("click", closePanelsFromOutside);
   document.addEventListener("pointermove", handleDragMove);
   document.addEventListener("pointerup", endDragSelection);
   document.addEventListener("pointercancel", endDragSelection);
@@ -157,6 +170,7 @@ function parseTilingText(text) {
 
 function newPuzzle(options = {}) {
   closeInfoPanel();
+  closeCustomPanel();
   const boardCells = radiusCells(BOARD_RADIUS);
   const puzzle = options.puzzle || null;
 
@@ -180,6 +194,7 @@ function makeRandomPuzzle(boardCells) {
   const chosenWords = new Set();
   const words = pieces.map((piece) => randomWord(piece.length, chosenWords));
 
+  state.extraWords = new Set();
   state.cells = makeEmptyCells(boardCells).filter((cell, index) => tiling[index] !== ".");
   state.solution = [];
 
@@ -201,7 +216,40 @@ function makeRandomPuzzle(boardCells) {
   });
 }
 
+function makePuzzleFromWords(boardCells, words) {
+  const penthexCount = words.filter((word) => word.length === 5).length;
+  const group = state.tilingGroups.find((tilingGroup) => tilingGroup.penthexes === penthexCount);
+  const tiling = randomItem(group.tilings);
+  const pieces = compactTilingToPieces(tiling);
+  const wordQueues = new Map([
+    [4, words.filter((word) => word.length === 4).map((word) => word.toUpperCase())],
+    [5, words.filter((word) => word.length === 5).map((word) => word.toUpperCase())]
+  ]);
+
+  state.extraWords = new Set(words.map((word) => word.toLowerCase()));
+  state.cells = makeEmptyCells(boardCells).filter((cell, index) => tiling[index] !== ".");
+  state.solution = [];
+
+  pieces.forEach((piece, pieceIndex) => {
+    const cells = piece
+      .map((index) => state.cells.find((cell) => cell.index === index))
+      .filter(Boolean);
+    const word = wordQueues.get(piece.length).shift();
+    const reading = randomGenerationReadingOrder(cells);
+
+    reading.forEach((cell, letterIndex) => {
+      cell.letter = word[letterIndex];
+      cell.pieceIndex = pieceIndex;
+    });
+    state.solution.push({
+      cells: reading.map((cell) => cell.id),
+      word
+    });
+  });
+}
+
 function loadPuzzle(boardCells, puzzle) {
+  state.extraWords = new Set();
   state.cells = makeEmptyCells(boardCells)
     .filter((cell, index) => puzzle.board[index] !== ".")
     .map((cell) => ({
@@ -209,7 +257,8 @@ function loadPuzzle(boardCells, puzzle) {
       letter: puzzle.board[cell.index].toUpperCase(),
       pieceIndex: puzzle.solution[cell.index] - 1
     }));
-  state.solution = makeSolutionFromCells();
+  state.solution = makeSolutionFromCells(puzzle.words);
+  state.extraWords = new Set(state.solution.map((piece) => piece.word.toLowerCase()));
 }
 
 function makeEmptyCells(boardCells) {
@@ -224,6 +273,7 @@ function makeEmptyCells(boardCells) {
 
 function restartPuzzle() {
   closeInfoPanel();
+  closeCustomPanel();
   resetProgress();
   render();
 }
@@ -253,6 +303,10 @@ function toggleInfoPanel(event) {
 
   elements.infoPanel.hidden = isOpen;
   elements.infoButton.setAttribute("aria-expanded", String(!isOpen));
+
+  if (!isOpen) {
+    closeCustomPanel();
+  }
 }
 
 function closeInfoPanel() {
@@ -260,7 +314,29 @@ function closeInfoPanel() {
   elements.infoButton.setAttribute("aria-expanded", "false");
 }
 
-function closeInfoFromOutside(event) {
+function toggleCustomPanel(event) {
+  event.stopPropagation();
+
+  const isOpen = !elements.customPanel.hidden;
+
+  elements.customPanel.hidden = isOpen;
+  elements.customButton.setAttribute("aria-expanded", String(!isOpen));
+
+  if (!isOpen) {
+    closeInfoPanel();
+    elements.customInputs[0]?.focus();
+  }
+}
+
+function closeCustomPanel() {
+  elements.customPanel.hidden = true;
+  elements.customButton.setAttribute("aria-expanded", "false");
+  elements.customMessage.textContent = "";
+  elements.customAnywayButton.hidden = true;
+  clearCustomInputErrors();
+}
+
+function closePanelsFromOutside(event) {
   if (
     !elements.infoPanel.hidden &&
     !elements.infoPanel.contains(event.target) &&
@@ -268,6 +344,121 @@ function closeInfoFromOutside(event) {
   ) {
     closeInfoPanel();
   }
+
+  if (
+    !elements.customPanel.hidden &&
+    !elements.customPanel.contains(event.target) &&
+    !elements.customButton.contains(event.target)
+  ) {
+    closeCustomPanel();
+  }
+}
+
+function buildCustomPuzzleFromForm(event) {
+  event.preventDefault();
+
+  const words = customWordsFromInputs();
+  const malformedInputs = malformedCustomInputs(words);
+  const unknownInputs = unknownCustomInputs(words);
+
+  clearCustomInputErrors();
+  elements.customAnywayButton.hidden = true;
+
+  if (malformedInputs.length > 0) {
+    markCustomInputsInvalid(malformedInputs);
+    elements.customMessage.textContent = malformedInputs.length === 1
+      ? "Check the highlighted word."
+      : "Check the highlighted words.";
+    return;
+  }
+
+  if (!words.some((word) => word.length === 4)) {
+    elements.customMessage.textContent = "Include at least one four-letter word.";
+    return;
+  }
+
+  if (unknownInputs.length > 0) {
+    markCustomInputsInvalid(unknownInputs);
+    elements.customAnywayButton.hidden = false;
+    elements.customMessage.textContent = unknownInputs.length === 1
+      ? "Check the highlighted word."
+      : "Check the highlighted words.";
+    return;
+  }
+
+  buildCustomPuzzle(words);
+}
+
+function buildCustomPuzzleAnyway() {
+  const words = customWordsFromInputs();
+  const malformedInputs = malformedCustomInputs(words);
+
+  clearCustomInputErrors();
+  elements.customAnywayButton.hidden = true;
+
+  if (malformedInputs.length > 0) {
+    markCustomInputsInvalid(malformedInputs);
+    elements.customMessage.textContent = malformedInputs.length === 1
+      ? "Check the highlighted word."
+      : "Check the highlighted words.";
+    return;
+  }
+
+  if (!words.some((word) => word.length === 4)) {
+    elements.customMessage.textContent = "Include at least one four-letter word.";
+    return;
+  }
+
+  buildCustomPuzzle(words);
+}
+
+function handleCustomInput(event) {
+  const input = event.target;
+  const start = input.selectionStart;
+  const nextValue = input.value.replace(/[^a-z]/gi, "").toUpperCase();
+
+  input.value = nextValue;
+  if (start !== null) {
+    input.setSelectionRange(start, start);
+  }
+  input.classList.remove("is-invalid");
+  input.removeAttribute("aria-invalid");
+  elements.customAnywayButton.hidden = true;
+  elements.customMessage.textContent = "";
+}
+
+function clearCustomInputErrors() {
+  elements.customInputs.forEach((input) => {
+    input.classList.remove("is-invalid");
+    input.removeAttribute("aria-invalid");
+  });
+}
+
+function customWordsFromInputs() {
+  return [...elements.customInputs].map((input) => input.value.trim().toLowerCase());
+}
+
+function malformedCustomInputs(words) {
+  return [...elements.customInputs].filter((input, index) => !/^[a-z]{4,5}$/.test(words[index]));
+}
+
+function unknownCustomInputs(words) {
+  return [...elements.customInputs].filter((input, index) => !state.allowedWords.has(words[index]));
+}
+
+function markCustomInputsInvalid(inputs) {
+  inputs.forEach((input) => {
+    input.classList.add("is-invalid");
+    input.setAttribute("aria-invalid", "true");
+  });
+}
+
+function buildCustomPuzzle(words) {
+  makePuzzleFromWords(radiusCells(BOARD_RADIUS), words);
+  resetProgress();
+  updateAddressBar();
+  closeCustomPanel();
+  render();
 }
 
 function compactTilingToPieces(tiling) {
@@ -301,6 +492,7 @@ function readPuzzleKey() {
   const params = new URLSearchParams(window.location.search);
   const board = params.get(BOARD_PARAM);
   const encodedSolution = params.get(SOLUTION_PARAM);
+  const encodedWords = params.get(WORDS_PARAM);
 
   if (!board || !encodedSolution) {
     return null;
@@ -312,7 +504,11 @@ function readPuzzleKey() {
     return null;
   }
 
-  return { board: board.toUpperCase(), solution };
+  return {
+    board: board.toUpperCase(),
+    solution,
+    words: decodeWordsString(encodedWords, solution)
+  };
 }
 
 function updateAddressBar() {
@@ -320,6 +516,7 @@ function updateAddressBar() {
 
   url.searchParams.set(BOARD_PARAM, makeBoardString());
   url.searchParams.set(SOLUTION_PARAM, makeEncodedSolutionString());
+  url.searchParams.set(WORDS_PARAM, makeEncodedWordsString());
   url.searchParams.delete("k");
   url.hash = "";
   window.history.replaceState(null, "", url.toString());
@@ -371,6 +568,68 @@ function solutionOffset(index) {
   return (index * 3 + 2) % SOLUTION_CHARS.length;
 }
 
+function makeEncodedWordsString() {
+  const text = state.solution.map((piece) => piece.word.toLowerCase()).join("");
+  const key = randomWordKey(text.length + 1);
+  const cipher = [...text]
+    .map((char, index) => {
+      const value = WORD_CHARS.indexOf(char);
+      const shift = WORD_CHARS.indexOf(key[index]);
+
+      return WORD_CHARS[(value + shift) % WORD_CHARS.length];
+    })
+    .join("");
+
+  return `${key}${cipher}`;
+}
+
+function decodeWordsString(encodedWords, solution) {
+  const lengths = solutionPieceLengths(solution);
+  const textLength = lengths.reduce((total, length) => total + length, 0);
+  const keyLength = textLength + 1;
+
+  if (
+    typeof encodedWords !== "string" ||
+    encodedWords.length !== keyLength + textLength ||
+    [...encodedWords].some((char) => !WORD_CHARS.includes(char))
+  ) {
+    return null;
+  }
+
+  const key = encodedWords.slice(0, keyLength);
+  const cipher = encodedWords.slice(keyLength);
+  const text = [...cipher]
+    .map((char, index) => {
+      const value = WORD_CHARS.indexOf(char);
+      const shift = WORD_CHARS.indexOf(key[index]);
+
+      return WORD_CHARS[(value - shift + WORD_CHARS.length) % WORD_CHARS.length];
+    })
+    .join("");
+
+  const words = [];
+  let offset = 0;
+
+  lengths.forEach((length) => {
+    words.push(text.slice(offset, offset + length).toUpperCase());
+    offset += length;
+  });
+
+  return words.every((word) => /^[A-Z]{4,5}$/.test(word)) ? words : null;
+}
+
+function randomWordKey(length) {
+  return Array.from({ length }, () => randomItem(WORD_CHARS)).join("");
+}
+
+function solutionPieceLengths(solution) {
+  const pieceCount = Math.max(...solution);
+
+  return Array.from({ length: pieceCount }, (_, pieceIndex) => {
+    return solution.filter((value) => value === pieceIndex + 1).length;
+  });
+}
+
 function isValidBoardString(board) {
   return typeof board === "string" &&
     board.length === radiusCells(BOARD_RADIUS).length &&
@@ -407,13 +666,15 @@ function isValidSolution(board, solution) {
     holeCount === 3 - penthexCount;
 }
 
-function makeSolutionFromCells() {
+function makeSolutionFromCells(intendedWords = null) {
   const pieceCount = Math.max(...state.cells.map((cell) => cell.pieceIndex)) + 1;
 
   return Array.from({ length: pieceCount }, (_, pieceIndex) => {
     const cells = state.cells.filter((cell) => cell.pieceIndex === pieceIndex);
     const reading = generationReadingOrder(cells);
-    const word = resolveWord(cells) || reading
+    const intendedWord = intendedWords?.[pieceIndex] || null;
+    const word = (intendedWord && isWordMadeFromCells(intendedWord, cells) ? intendedWord : null) ||
+      resolveWord(cells) || reading
       .map((cell) => cell.letter)
       .join("");
 
@@ -422,6 +683,12 @@ function makeSolutionFromCells() {
       word
     };
   });
+}
+
+function isWordMadeFromCells(word, cells) {
+  const cellLetters = cells.map((cell) => cell.letter).sort().join("");
+
+  return [...word.toUpperCase()].sort().join("") === cellLetters;
 }
 
 function render() {
@@ -900,7 +1167,7 @@ function resolveWord(cells) {
   const orderedCandidates = generationReadingOrders(cells).map((order) => {
     return order.map((cell) => cell.letter).join("");
   });
-  const orderedWord = orderedCandidates.find((word) => state.allowedWords.has(word.toLowerCase()));
+  const orderedWord = orderedCandidates.find((word) => isAcceptedWord(word));
 
   if (orderedWord) {
     return orderedWord;
@@ -908,7 +1175,13 @@ function resolveWord(cells) {
 
   const anagramCandidates = anagrams(cells.map((cell) => cell.letter));
 
-  return anagramCandidates.find((word) => state.allowedWords.has(word.toLowerCase())) || null;
+  return anagramCandidates.find((word) => isAcceptedWord(word)) || null;
+}
+
+function isAcceptedWord(word) {
+  const key = word.toLowerCase();
+
+  return state.allowedWords.has(key) || state.extraWords.has(key);
 }
 
 function anagrams(letters) {
@@ -1059,9 +1332,14 @@ function isConnected(cells) {
 }
 
 function handleKeyDown(event) {
-  if (event.key === "Escape" && !elements.infoPanel.hidden) {
+  if (event.key === "Escape" && (!elements.infoPanel.hidden || !elements.customPanel.hidden)) {
     event.preventDefault();
     closeInfoPanel();
+    closeCustomPanel();
+    return;
+  }
+
+  if (isEditableTarget(event.target)) {
     return;
   }
 
@@ -1105,6 +1383,12 @@ function handleKeyDown(event) {
     state.invalidSelection = false;
     render();
   }
+}
+
+function isEditableTarget(target) {
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target?.isContentEditable;
 }
 
 function showOriginalTiling() {
