@@ -145,6 +145,8 @@ Review helpers:
 The working log for generation-order decisions is in
 `docs/generation-order-notes.md`.
 
+Broader future ideas are collected in `docs/ideas.md`.
+
 ## Implementation Notes
 
 The browser game lives in:
