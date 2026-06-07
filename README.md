@@ -137,10 +137,10 @@ scripts/generate-penthex-generation-orders.py
 
 Review helpers:
 
-- `tetrahex-letter-order-review.html`
-- `penthex-letter-order-review.html`
-- `penthex-generation-order-review.html`
-- `mixed-tilings-preview.html`
+- `docs/tetrahex-letter-order-review.html`
+- `docs/penthex-letter-order-review.html`
+- `docs/penthex-generation-order-review.html`
+- `docs/mixed-tilings-preview.html`
 
 The working log for generation-order decisions is in
 `docs/generation-order-notes.md`.

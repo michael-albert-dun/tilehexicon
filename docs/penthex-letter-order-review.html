@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tetrahex Letter Order Review</title>
+  <title>Penthex Letter Order Review</title>
   <style>
     :root {
       --page: #f4f8fb;
@@ -153,13 +153,13 @@
 <body>
   <main>
     <header>
-      <h1>Tetrahex Letter Order Review</h1>
+      <h1>Penthex Letter Order Review</h1>
       <p class="note">
-        Each card shows one fixed tetrahex orientation. The tile is filled with
-        <code>HINT</code> using the first allowed generation order. The
+        Each card shows one fixed penthex orientation. The tile is filled with
+        <code>LUNGE</code> using the first allowed generation order. The
         <code>Allowed</code> line lists current allowed readings as letter
-        strings, so review notes can use commands like <code>7: Add HTIN</code>
-        or <code>7: Delete HINT</code>.
+        strings, so review notes can use commands like <code>37: Add LUNEG</code>
+        or <code>44: Delete LUNGE</code>.
       </p>
       <div class="version-note" id="versionNote">Loading...</div>
     </header>
@@ -169,33 +169,35 @@
 
   <script>
     const HEX_SIZE = 24;
-    const WORD = "HINT";
+    const WORD = "LUNGE";
     const OUTER_POINTS = hexPoints(HEX_SIZE).map(([x, y]) => `${x},${y}`).join(" ");
     const INNER_POINTS = hexPoints(HEX_SIZE * 0.72).map(([x, y]) => `${x},${y}`).join(" ");
 
     render();
 
     async function render() {
-      const ordersByCoords = await fetchJson("data/tetrahex-generation-orders.json");
-      const entries = Object.entries(ordersByCoords).map(([shapeKey, coordOrders], index) => ({
-        shape: parseShape(shapeKey),
-        shapeNumber: index + 1,
-        orders: ordersForShapeKey(shapeKey, coordOrders),
-      }));
+      const [shapesText, orders] = await Promise.all([
+        fetchText("../data/penthex-shapes.txt"),
+        fetchJson("../data/penthex-generation-orders.json"),
+      ]);
+      const shapes = shapesText.trim().split(/\n+/).map(parseShape);
       const gallery = document.querySelector("#gallery");
       let multiOrderCount = 0;
 
       gallery.textContent = "";
-      entries.forEach(({ shape, shapeNumber, orders }) => {
-        if (orders.length > 1) {
+      shapes.forEach((shape, index) => {
+        const shapeIndex = String(index + 1);
+        const shapeOrders = orders[shapeIndex] || [];
+
+        if (shapeOrders.length > 1) {
           multiOrderCount += 1;
         }
 
-        gallery.append(makeCard(shape, shapeNumber, orders));
+        gallery.append(makeCard(shape, index + 1, shapeOrders));
       });
 
       document.querySelector("#versionNote").textContent =
-        `Review build 2026-06-06 · ${entries.length} order-table shapes · ${multiOrderCount} multi-order shapes`;
+        `Review build 2026-06-06 · ${shapes.length} shapes · ${multiOrderCount} multi-order shapes`;
     }
 
     async function fetchText(url) {
@@ -214,14 +216,6 @@
       return response.json();
     }
 
-    function ordersForShapeKey(shapeKey, coordOrders) {
-      const coordStrings = shapeKey.split(";");
-
-      return coordOrders.map((coordOrder) => coordOrder
-        .map((coord) => String(coordStrings.indexOf(coord) + 1))
-        .join(""));
-    }
-
     function makeCard(shape, shapeNumber, orders) {
       const card = document.createElement("article");
       const title = document.createElement("div");
@@ -229,7 +223,7 @@
       const allowed = document.createElement("div");
       const rawOrders = document.createElement("div");
       const coords = document.createElement("div");
-      const primaryOrder = orders[0] || "1234";
+      const primaryOrder = orders[0] || "12345";
       const lettersByCell = lettersForOrder(primaryOrder);
       const allowedReadings = orders.map((order) => readingForOrder(order, lettersByCell));
 
@@ -238,7 +232,7 @@
       title.innerHTML = `<span>Shape ${shapeNumber}</span><span class="primary-order">base ${primaryOrder}</span>`;
       svg.setAttribute("viewBox", boundsFor(shape, HEX_SIZE).join(" "));
       svg.setAttribute("role", "img");
-      svg.setAttribute("aria-label", `Tetrahex shape ${shapeNumber}, allowed readings ${allowedReadings.join(", ")}`);
+      svg.setAttribute("aria-label", `Penthex shape ${shapeNumber}, allowed readings ${allowedReadings.join(", ")}`);
 
       shape.forEach(([q, r], cellIndex) => {
         const [x, y] = axialToPixel(q, r, HEX_SIZE);

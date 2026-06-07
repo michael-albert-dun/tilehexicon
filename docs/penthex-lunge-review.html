@@ -141,7 +141,7 @@
       <h1>Penthex LUNGE Review</h1>
       <p class="note">
         Each card shows one fixed penthex orientation filled with LUNGE according
-        to one allowed generation order from <code>data/penthex-generation-orders.json</code>.
+        to one allowed generation order from <code>../data/penthex-generation-orders.json</code>.
         Shapes with multiple allowed orders appear once per order.
       </p>
       <div class="version-note" id="versionNote">Loading...</div>
@@ -160,8 +160,8 @@
 
     async function render() {
       const [shapesText, orders] = await Promise.all([
-        fetchText("data/penthex-shapes.txt"),
-        fetchJson("data/penthex-generation-orders.json"),
+        fetchText("../data/penthex-shapes.txt"),
+        fetchJson("../data/penthex-generation-orders.json"),
       ]);
       const shapes = shapesText.trim().split(/\n+/).map(parseShape);
       const gallery = document.querySelector("#gallery");

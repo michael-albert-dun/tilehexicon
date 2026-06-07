@@ -34,7 +34,7 @@ valid-looking groupings that were not generated. Possible future responses:
 ## Penthexes
 
 Penthex shape data is in `data/penthex-shapes.txt`. The review helper is
-`penthex-generation-order-review.html`.
+`docs/penthex-generation-order-review.html`.
 
 The canonical association table is now:
 
@@ -129,7 +129,7 @@ Current radius-2 tiling counts:
 - `data/polyhex-tilings-radius-2-orders-4-5-5-5-holes-0.txt`: 364 tilings with
   one tetrahex and three penthexes.
 
-The helper `mixed-tilings-preview.html` shows the no-hole mixed tilings visually.
+The helper `docs/mixed-tilings-preview.html` shows the no-hole mixed tilings visually.
 
 Random puzzle generation should not choose uniformly from the union of these
 files, because the two- and three-penthex cases would be underrepresented. The
